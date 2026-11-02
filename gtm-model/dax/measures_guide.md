@@ -1,6 +1,6 @@
 # GTM DAX measures guide
 
-Source: `measures.dax` (table MPO, 100 measures) plus `l12m_measures.dax` (6 L12M measures). Dates: **planned** = active relationship DimDate[DATE_KEY]→MPO[DateKey]; **executed** = inactive DimDate[DATE_KEY]→MPO[ExecutedDateKey] via USERELATIONSHIP. Product slicer does not affect any measure except the (stubbed) product-level sales.
+Source: `measures.dax` (table MPO, 100 measures) plus `l12m_measures.dax` (19 L12M measures). Dates: **planned** = active relationship DimDate[DATE_KEY]→MPO[DateKey]; **executed** = inactive DimDate[DATE_KEY]→MPO[ExecutedDateKey] via USERELATIONSHIP. Product slicer does not affect any measure except the (stubbed) product-level sales.
 
 ## Core measures
 
@@ -144,11 +144,14 @@ DirectQuery: the MoM bar runs one grouped query over the visible members of the 
 ## DirectQuery notes
 Simple aggregations + filters on int columns fold to SQL. Time intelligence runs on DimDate (Dual), so date shifts resolve locally and send key lists to SQL. No FILTER(MPO) iteration or row-level SUMX over the fact. Check with Performance Analyzer.
 
-## 10. L12M (rolling last 12 months, BU page)
-- Source file: `dax/l12m_measures.dax` (6 measures + table definition; not in measures.dax). Core measures.dax now has 100 measures.
-- Table `'L12M Axis'` (dax/l12m_axis.tmdl): a disconnected, Import calculated table built from DimDate months. Columns: Month Start, Month Label ("Aug 2026", sorted by Month Sort Key), Month Sort Key (yyyymm, hidden). It has no relationships. Fallback: the same 3 columns as an Import Power Query table.
-- `L12M Selected Month End`: the end of the latest selected DimDate month. With no date filter it uses the end of the month of [Data Through Date].
-- `L12M Visible Flag`: 1 when the axis month falls in the 12 months ending at the selected month.
-- `L12M Planned`, `L12M Executed` (executed date, USERELATIONSHIP on ExecutedDateKey), `L12M Activities With Sales` (PROVISIONAL, planned date): REMOVEFILTERS(DimDate), then the axis month as a DATESBETWEEN range. Blank outside the window.
-- `L12M Bar Colour`: #006341 for the selected month, #A6A6A6 for the others (fx > Field value).
-- Example: with Aug 2026 selected, the bars run Sep 2025 to Aug 2026.
+## 10. L12M (rolling last 12 months, BU page) - Month Anchor rework
+- Source file: `dax/l12m_measures.dax` (2 table definitions + 19 measures; not in measures.dax). measures.dax keeps 100 measures, so 119 in total. `dax/l12m_axis.tmdl` is SUPERSEDED.
+- `'Month Anchor'` (disconnected, Import calculated table from DimDate months): Month Start, Year, Month Number (hidden), Month Short ("Aug", sorted by Month Number), Month Sort Key (YYYYMM, hidden), Relative Month Index (0 = calendar month at refresh). It drives the Year and Month slicers on the BU page.
+- `'L12M Axis'` (disconnected, separate copy of the months): Month Start (hidden), Month Sort Key (hidden), Axis Label. Axis Label = "Aug" plus zero-width spaces (one per year after the first year), so each month is unique but shows only "Aug". Sorted by Month Sort Key, so the bars are always in date order. It has to be a separate table: a slicer on the anchor would cut the axis down to one month.
+- The axis shows short month names only (e.g. Sep ... Aug), never the year. The year is in the tooltip (`L12M Month Label`) and the title (`L12M Title`).
+- `L12M Latest Data Month`: the month of [Data Through Date], ignoring date filters. `L12M Selected Month`: the latest selected anchor month up to the latest data month. If nothing is selected, it's the latest data month.
+- `L12M Visible Flag` (visual filter = 1), `L12M Position` (1-12, 12 = selected month), `L12M Is Selected Month`.
+- `L12M Planned`, `L12M Executed` (executed date, USERELATIONSHIP on ExecutedDateKey), `L12M Activities With Sales` (PROVISIONAL, planned date).
+- Colours (fx > Field value, per series): `L12M Bar Colour Planned` #BFBFBF / #7F7F7F selected; `L12M Bar Colour Executed` #7FB19F / #006341 selected; `L12M Bar Colour Sales` #A9B4C2 / #4A5A6E selected. The old single `L12M Bar Colour` and `L12M Selected Month End` are removed.
+- Anchor KPIs (folder 10. L12M\Anchor KPIs): `Anchor Planned`, `Anchor Executed`, `Anchor Executed (Exec Date)`, `Anchor Activities With Sales`, `Anchor Sales Count` (both PROVISIONAL) and `Anchor Execution %`. Each one is the base measure with TREATAS(anchor Year + Month Number -> DimDate[YEAR], DimDate[MONTH]). If nothing is selected, it uses the latest data month. Use these on BU page cards in place of the base measures. The base measures are unchanged.
+- Example: with Aug 2026 selected, the bars run Sep 2025 to Aug 2026 and Aug is the 12th, darker bar.

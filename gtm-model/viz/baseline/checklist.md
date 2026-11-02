@@ -28,4 +28,6 @@ Work on a COPY of the .pbix. Do not rebuild pages.
 - [ ] No bank name anywhere; nothing pushed to GitHub.
 - [ ] Page cleanup only after user confirms the tab list.
 
-- [ ] Business Unit: replace MoM chart with L12M clustered column (see enhancement_spec 02). QA (untested in Power BI): 12 columns in date order, Aug 2026 selected -> Sep 2025-Aug 2026, no selection ends at latest month with data, selected month #006341 others #A6A6A6, BU slicer filters bars, L12M Executed/Planned match the DimDate-based measures per month.
+
+- [ ] Business Unit (L12M rework, see enhancement_spec 02): add 'Month Anchor' + 'L12M Axis' from dax/l12m_measures.dax (no relationships; ignore superseded l12m_axis.tmdl); swap Year/Month slicers to Month Anchor (single select) - NOT synced with DimDate slicers on other pages; KPI cards = 6 Anchor measures; chart X Axis Label, tooltip L12M Month Label, filter L12M Visible Flag = 1, title fx L12M Title, per-series colour fx (Planned/Executed/Sales). Use only the per-series colour measures above.
+- [ ] QA (untested in Power BI): 2026 + Aug -> 12 columns Sep..Aug chronological, Aug darker in all 3 series; tooltip shows year; window-edge duplicate month names stay separate; nothing selected ends at latest data month; cards match DimDate measures for Aug 2026 elsewhere; BU-page month does not affect other pages; BU slicer filters cards and chart.

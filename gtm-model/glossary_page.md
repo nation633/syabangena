@@ -57,5 +57,8 @@ Paste each block into a text box on a "Glossary" report page. Formatting: Arial 
 - Sparkline: the months in the current filter, not a fixed 12 months. The green line is Executed and the grey line is Not Executed.
 
 ## Rolling 12 months (Business Unit page)
-- The chart shows the 12 months ending at the month picked in the Month slicer; the selected month is the last bar, in green. With no month selected it ends at the latest month with data.
-- Planned and Activities With Sales (provisional) are on the planned date; Executed is on the date the activity was executed.
+- Use the Year and Month slicers on this page to pick a month. The chart then shows the 12 months ending with it. For example, Aug 2026 shows Sep 2025 to Aug 2026, with Aug as the last bar.
+- If you pick nothing, the page uses the latest month with data.
+- The axis shows month names only. Hover over a bar to see the year.
+- Grey = Planned and slate = Activities with a sale (provisional), both by planned date. Green = Executed, by the date it was executed. The selected month's bars are a darker shade.
+- The KPI cards on this page follow the same Year and Month selection.

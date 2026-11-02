@@ -26,8 +26,11 @@ CHANGE:
 ADD: Plan Bridge waterfall ('Plan Bridge'[Step] sorted by Order, Plan Bridge Value, total renamed "Executed"); MoM change waterfall (month axis, Executed MoM Diff); Executed 7D Avg line on Daily (line-and-column).
 
 ## 02 Business Unit
-CHANGE (DAX Analyst request, 15:30): MoM chart -> rolling last 12 months clustered column, same position/size. X = 'L12M Axis'[Month Label] (sorted by hidden Month Sort Key, not a date hierarchy, drill off); Y = L12M Planned, L12M Executed, L12M Activities With Sales (PROVISIONAL); visual filter L12M Visible Flag = 1; Columns colour fx Field value = L12M Bar Colour (#006341 selected month, #A6A6A6 others). Table from dax/l12m_axis.tmdl (no relationships); measures folder 10. L12M (verified present, untested in Power BI). Month slicer stays on DimDate. Aug 2026 selected = Sep 2025-Aug 2026; nothing selected = 12 months to latest month with data. Replaces the "Nov light = PENDING N2" shading on this chart (selected-month colour wins).
-KEEP: Year/Month/Day/BU slicers, BU Executed vs Sale + conversion circles, Daily Executed Vol.
+CHANGE (L12M rework, 15:53; dax/l12m_measures.dax, l12m_axis.tmdl SUPERSEDED; all tables/measures verified present, untested in Power BI):
+- Slicers: DimDate Year/Month -> 'Month Anchor'[Year] and 'Month Anchor'[Month Short] (sorted by Month Number), both single select. NOT synced with DimDate Year/Month on other pages.
+- KPI cards: Anchor Planned, Anchor Executed, Anchor Executed (Exec Date), Anchor Activities With Sales (prov.), Anchor Sales Count (prov.), Anchor Execution %. Replaces the YTD/slicer-context cards on this page (N7 YTD not used here).
+- MoM chart -> L12M clustered column, same position/size. X = 'L12M Axis'[Axis Label] (month names only, sorted by hidden Month Sort Key, not a date hierarchy, drill off); tooltip L12M Month Label (adds year); Y = L12M Planned, L12M Executed, L12M Activities With Sales (PROVISIONAL); visual filter L12M Visible Flag = 1; title fx = L12M Title; per-series colour fx Field value: L12M Bar Colour Planned (#BFBFBF / #7F7F7F selected), L12M Bar Colour Executed (#7FB19F / #006341 selected), L12M Bar Colour Sales (#A9B4C2 / #4A5A6E selected). Aug 2026 selected = Sep 2025-Aug 2026; nothing selected = 12 months to latest data month. No "Nov light" N2 shading on this chart.
+KEEP: Day/BU slicers, BU Executed vs Sale + conversion circles, Daily Executed Vol.
 CHANGE:
 - YTD cards: keep on slicer context; true YTD = PENDING N7 (Executed/Planned/Sales Count YTD). Relabel to drop "YTD" until then.
 - Product Group % donut → stacked bar per BU: Activities With Sales + Executed No Sale (100% stacked). Product-share version waits on Sales Count (Product) (mapping #11).

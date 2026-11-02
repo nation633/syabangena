@@ -7,7 +7,7 @@ BG="#F4F6F7"; W="#FFFFFF"; RED="#B03A2E"
 F="/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"; FB="/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 def fnt(s,b=False): return ImageFont.truetype(FB if b else F,s)
 D="DimDate"; M="MPO"; P="Product"
-SL={"Year":"DimDate[YEAR]","Month":"DimDate[MONTH_NAME] (sorted by MONTH)","Day":"DimDate[ACTUAL_DATE] (between)","BU":"MPO[BusinessUnit]","Region":"MPO[Region]","Branch":"MPO[Branch]","Company":"MPO[Company]","Product Group":"Product[ProductGroup]","Product":"Product[ProductLabel]","Level":"Level[Level] (field parameter) - SINGLE SELECT, default Region","Metric":"Metric[Metric] (field parameter, dax/field_parameters.tmdl) - SINGLE SELECT, default Not Executed"}
+SL={"Year":"DimDate[YEAR]","Month":"DimDate[MONTH_NAME] (sorted by MONTH)","Day":"DimDate[ACTUAL_DATE] (between)","BU":"MPO[BusinessUnit]","Region":"MPO[Region]","Branch":"MPO[Branch]","Company":"MPO[Company]","Product Group":"Product[ProductGroup]","Product":"Product[ProductLabel]","Level":"Level[Level] (field parameter) - SINGLE SELECT, default Region","Anchor Year":"'Month Anchor'[Year] - SINGLE SELECT (NOT synced with DimDate Year)","Anchor Month":"'Month Anchor'[Month Short] (sorted by Month Number) - SINGLE SELECT (NOT synced with DimDate Month)","Metric":"Metric[Metric] (field parameter, dax/field_parameters.tmdl) - SINGLE SELECT, default Not Executed"}
 def slicers(names):
     if not names: return []
     n=len(names); x0=16; wtot=1280-32-48-8; w=(wtot-(n-1)*8)//n
@@ -44,11 +44,18 @@ page("01","Exec Overview","Are we on plan? Target = Planned",STORY,[
  dict(id="V4",type="Clustered bar chart (bookmark 'BM Exec - Chart', default)",title="Top 15 branches by not executed",x=792,y=472,w=472,h=240,fields="Y: MPO[Branch]; X: [Not Executed], [Executed Activities]; Top N 15 by [Not Executed]; tooltip TT Branch",kind="hbar"),
  NEXT("Business Unit"),INFO(),RESET()],
  "Plan Bridge waterfall V1 replaces the funnel (it shows the drop from plan as Not Executed; the funnel's with-sales step is provisional and conversion lives on Product). Donut dropped (the bridge shows the same split). K6 Gap to Plan sits next to K3. Absorbs the former Execution page (stacked months -> V2, rate line V7, top branches V4/V4T toggle). Smart narrative optional (spec only). K-card variance colours up #006341 / down #B03A2E.")
-page("02","Business Unit","Which BU misses plan, and is it worsening?",STORY+["Metric"],[
- dict(id="V1",type="Matrix (drill-down)"+PD+PR,title="BU > Region vs plan [fx: Title - Business Unit]",x=16,y=C0,w=1248,h=292,fields=f"Title fx: [Title - Business Unit] (Format > Title > fx > Field value; untested, check in QA); Rows: MPO[BusinessUnit] > MPO[Region] (+/- on, expand to Region); Values: [Planned Activities], [Executed Activities], [Not Executed], [Gap to Plan], {BUL} (120x20), {FB_}, {DB} (tooltip [Execution Rate YoY pp]; blank for 2025 - no 2024 data), [SVG Status Pill] (80x20), [SVG Sparkline Executed] (120x20)",kind="svgtable"),
+page("02","Business Unit","Which BU misses plan, and is it worsening?",["Anchor Year","Anchor Month","BU","Region","Branch","Metric"],[
+ dict(id="K1",type="Card (new)",title="Planned",x=16,y=C0,w=200,h=100,fields="Value: [Anchor Planned] (10. L12M, dax/l12m_measures.dax; follows the Month Anchor slicers; nothing selected = latest data month)",kind="kpi"),
+ dict(id="K2",type="Card (new)",title="Executed",x=224,y=C0,w=200,h=100,fields="Value: [Anchor Executed] (10. L12M, dax/l12m_measures.dax; follows the Month Anchor slicers; nothing selected = latest data month)",kind="kpi"),
+ dict(id="K3",type="Card (new)",title="Executed (exec date)",x=432,y=C0,w=200,h=100,fields="Value: [Anchor Executed (Exec Date)] (10. L12M, dax/l12m_measures.dax; follows the Month Anchor slicers; nothing selected = latest data month)",kind="kpi"),
+ dict(id="K4",type="Card (new) - PROVISIONAL",title="Activities with sales (prov.)",x=640,y=C0,w=200,h=100,fields="Value: [Anchor Activities With Sales] (10. L12M, dax/l12m_measures.dax; follows the Month Anchor slicers; nothing selected = latest data month)",kind="kpi"),
+ dict(id="K5",type="Card (new) - PROVISIONAL",title="Sales count (prov.)",x=848,y=C0,w=200,h=100,fields="Value: [Anchor Sales Count] (10. L12M, dax/l12m_measures.dax; follows the Month Anchor slicers; nothing selected = latest data month)",kind="kpi"),
+ dict(id="K6",type="Card (new)",title="Execution %",x=1056,y=C0,w=200,h=100,fields="Value: [Anchor Execution %] (10. L12M, dax/l12m_measures.dax; follows the Month Anchor slicers; nothing selected = latest data month)",kind="kpi"),
+
+ dict(id="V1",type="Matrix (drill-down)"+PD+PR,title="BU > Region vs plan [fx: Title - Business Unit]",x=16,y=224,w=1248,h=184,fields=f"Title fx: [Title - Business Unit] (Format > Title > fx > Field value; untested, check in QA); Rows: MPO[BusinessUnit] > MPO[Region] (+/- on, expand to Region); Values: [Planned Activities], [Executed Activities], [Not Executed], [Gap to Plan], {BUL} (120x20), {FB_}, {DB} (tooltip [Execution Rate YoY pp]; blank for 2025 - no 2024 data), [SVG Status Pill] (80x20), [SVG Sparkline Executed] (120x20)",kind="svgtable"),
  dict(id="V2",type="Decomposition tree",title="Selected metric by BU > Region > MicroMarket > Branch > BankerName",x=16,y=416,w=400,h=296,fields="Analyze: Metric[Metric] (field parameter, single select slicer, default Not Executed; fallback bookmarks); Explain by: MPO[BusinessUnit], MPO[Region], MPO[MicroMarket], MPO[Branch], MPO[BankerName]",kind="decomp"),
  dict(id="V3",type="Line chart (small multiples)",title="Execution rate % vs PY per BU",x=424,y=416,w=400,h=296,fields="X: DimDate[YEAR_MONTH_KEY]; Y: [Execution Rate %], [Execution Rate PY]; Small multiples: MPO[BusinessUnit]",kind="smallmult"),
- dict(id="V4",type="Clustered column chart - PROVISIONAL",title="Rolling last 12 months (sales prov.)",x=832,y=416,w=432,h=296,fields="X: 'L12M Axis'[Month Label] (sort by hidden 'L12M Axis'[Month Sort Key] ascending; not a date hierarchy; drill off); Y: [L12M Planned], [L12M Executed], [L12M Activities With Sales] (PROVISIONAL); visual-level filter [L12M Visible Flag] is 1; Columns colour fx > Field value = [L12M Bar Colour] (#006341 selected month, #A6A6A6 others) on each series; Month slicer stays on DimDate (axis table disconnected); Aug 2026 selected = Sep 2025-Aug 2026, nothing selected = 12 months to latest month with data; replaces the MoM chart; untested in Power BI, check in QA",kind="l12m"),
+ dict(id="V4",type="Clustered column chart - PROVISIONAL",title="Rolling 12 months [fx: L12M Title]",x=832,y=416,w=432,h=296,fields="Title fx: [L12M Title] (Format > Title > fx > Field value); X: 'L12M Axis'[Axis Label] (month names only; sorted by hidden Month Sort Key ascending; not a date hierarchy; drill off); Y: [L12M Planned], [L12M Executed], [L12M Activities With Sales] (PROVISIONAL); Tooltip: [L12M Month Label] (month + year); visual-level filter [L12M Visible Flag] is 1; Columns colour per series fx > Field value: Planned = [L12M Bar Colour Planned] (#BFBFBF, #7F7F7F selected), Executed = [L12M Bar Colour Executed] (#7FB19F, #006341 selected), Sales = [L12M Bar Colour Sales] (#A9B4C2, #4A5A6E selected); window driven by the Month Anchor slicers (both tables disconnected, dax/l12m_measures.dax); Aug 2026 selected = Sep 2025-Aug 2026; nothing selected = 12 months to latest data month; untested in Power BI, check in QA",kind="l12m"),
  NEXT("Region"),INFO(),RESET()],
  "Matrix column headers white on #006341. Matrix rows drill-through to Banker Detail at banker level not available (BU/Region only); use the decomposition tree.")
 page("03","Region","Within the BU, which regions and micro-markets drive the gap?",STORY+["Level"],[
@@ -124,7 +131,7 @@ def background(p):
 def draw_vis(d,v):
     x,y,w,h=v["x"],v["y"],v["w"],v["h"]; k=v["kind"]
     if k=="slicer":
-        d.rectangle([x,y,x+w,y+h],fill=W,outline=GR2); d.text((x+6,y+3),v["title"],font=fnt(10,True),fill="#000"); d.text((x+6,y+20),("Not Executed  v" if v["title"]=="Metric" else "All  v"),font=fnt(10),fill="#000"); return
+        d.rectangle([x,y,x+w,y+h],fill=W,outline=GR2); d.text((x+6,y+3),v["title"],font=fnt(10,True),fill="#000"); d.text((x+6,y+20),("Not Executed  v" if v["title"]=="Metric" else "2026  v" if v["title"]=="Anchor Year" else "Aug  v" if v["title"]=="Anchor Month" else "All  v"),font=fnt(10),fill="#000"); return
     if k=="next":
         d.rectangle([x,y+4,x+w,y+h-4],fill=W); d.text((x+7,y+10),"Next >",font=fnt(10,True),fill=G); return
     if k=="toggle":
@@ -170,8 +177,12 @@ def draw_vis(d,v):
     if k=="kpi":
         n=5 if w>1000 else 1; cw=w/n
         for i in range(n):
-            xx=x+i*cw; d.text((xx+12,y+24),f"{random.randint(1,40)*1000+random.randint(0,999):,}" if not ("%" in v["title"] or (n==5 and i==3)) else "71.4%",font=fnt(26,True),fill="#000")
-            d.text((xx+12,y+62),"PY 18,204",font=fnt(10),fill="#000"); d.text((xx+12,y+78),"MoM +4.2%",font=fnt(10,True),fill=G)
+            xx=x+i*cw
+            AV={"Planned":"9,140","Executed":"8,040","Executed (exec date)":"8,110","Activities with sales (prov.)":"2,090","Sales count (prov.)":"2,410","Execution %":"88.0%"}
+            if "Anchor" in v["fields"]: d.text((xx+12,y+24),AV.get(v["title"],"0"),font=fnt(26,True),fill="#000")
+            else: d.text((xx+12,y+24),f"{random.randint(1,40)*1000+random.randint(0,999):,}" if not ("%" in v["title"] or (n==5 and i==3)) else "71.4%",font=fnt(26,True),fill="#000")
+            if "Anchor" not in v["fields"]: d.text((xx+12,y+62),"PY 18,204",font=fnt(10),fill="#000"); d.text((xx+12,y+78),"MoM +4.2%",font=fnt(10,True),fill=G)
+            else: d.text((xx+12,y+66),"Aug 2026 (anchor)",font=fnt(10),fill="#000")
             if "[SVG Bullet" in v["fields"]:
                 bx=xx+110; d.rectangle([bx,y+62,bx+120,y+72],fill="#E6E9EB"); d.rectangle([bx,y+64,bx+84,y+70],fill=G); d.line([bx+112,y+59,bx+112,y+75],fill="#000",width=2); d.line([bx+76,y+60,bx+76,y+74],fill=GR2,width=2)
             if "[SVG Floating Bar" in v["fields"]:
@@ -187,14 +198,18 @@ def draw_vis(d,v):
             st=(h-60)/3; bw=(w-40)*f; yy=y+40+i*st; d.rectangle([x+w/2-bw/2,yy,x+w/2+bw/2,yy+st-20],fill=[G,G3,LIME][i])
             d.text((x+w/2-60,yy+st/2-16),f"{lab}  {int(f*100)}%",font=fnt(10,True),fill=W if i<2 else "#000")
     elif k=="l12m":
-        ML=["Sep 25","Oct 25","Nov 25","Dec 25","Jan 26","Feb 26","Mar 26","Apr 26","May 26","Jun 26","Jul 26","Aug 26"]
-        n=12; bw=(ax[2]-ax[0])/n; H=ax[3]-ax[1]
+        ML=["Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"]
+        CL=[("#BFBFBF","#7F7F7F"),("#7FB19F","#006341"),("#A9B4C2","#4A5A6E")]
+        n=12; bw=(ax[2]-ax[0])/n; H=ax[3]-ax[1]-14
         for i in range(n):
-            c=G if i==n-1 else "#A6A6A6"; p_=random.uniform(.7,.9); vals=[p_,p_*random.uniform(.8,.95),p_*random.uniform(.2,.3)]
+            p_=random.uniform(.7,.9); vals=[p_,p_*random.uniform(.8,.95),p_*random.uniform(.2,.3)]
             for j,vv in enumerate(vals):
-                xx=ax[0]+i*bw+2+j*(bw-4)/3; d.rectangle([xx,ax[3]-vv*H*.9,xx+(bw-4)/3-1,ax[3]],fill=c,outline=W if j else None)
-            d.text((ax[0]+i*bw,ax[3]+3),ML[i][:3],font=fnt(8),fill="#000")
-        d.text((ax[0],ax[1]-2),"bars per month: Planned | Executed | With sales (prov.)   green = selected month (Aug 2026)",font=fnt(8),fill="#000")
+                xx=ax[0]+i*bw+2+j*(bw-4)/3; d.rectangle([xx,ax[3]-vv*H,xx+(bw-4)/3-1,ax[3]],fill=CL[j][1 if i==n-1 else 0])
+            d.text((ax[0]+i*bw+2,ax[3]+3),ML[i],font=fnt(8),fill="#000")
+        lx=ax[0]
+        for (c0,c1),lab in zip(CL,["Planned","Executed","With sales (prov.)"]):
+            d.rectangle([lx,ax[1]-4,lx+8,ax[1]+4],fill=c1); d.text((lx+11,ax[1]-5),lab,font=fnt(8),fill="#000"); lx+=d.textlength(lab,font=fnt(8))+24
+        d.text((ax[0],ax[1]+8),"Aug 2026 selected: darker = selected month",font=fnt(8),fill="#000")
     elif k=="combo": bars(22 if w>800 else 12); line(22 if w>800 else 12,LIME,.5,.85); line(22 if w>800 else 12,GR,.4,.7,dash=True)
     elif k=="line2": line(22,G,.4,.8); line(22,GR2,.3,.7,dash=True)
     elif k=="stack": bars(22)
@@ -214,6 +229,7 @@ def draw_vis(d,v):
         yy=y+24; d.rectangle([tx,yy,tx+tw,yy+18],fill=G); cx=tx
         for c,wc in zip(cols,cw): d.text((cx+3,yy+3),c,font=fnt(10,True),fill=W); cx+=wc
         rows=int((h-50)/20)
+        if "[SVG Status Pill]" in f: rows=min(rows,int((h-80)/20))
         if "Top N 15" in f: rows=min(rows,15)
         if "Top N 20" in f: rows=min(rows,20)
         for r in range(rows):
@@ -344,7 +360,7 @@ for p in pages:
 o+=["## Story order and navigation",
 "Exec Overview > Business Unit > Region > Branch > Banker (Individual) > [Banker Detail, drill-through] > Product (PROVISIONAL) > Company; supporting: Daily, Glossary; optional: Branch Detail. Drill spine BU > Region > MicroMarket > Branch > BankerName (MPO hierarchy + Level parameter).",
 "- **Next >** button (1168,12,52,32) on each story page: Page navigation to the next page (Company -> Daily). Selections carry forward through synced slicers.",
-"- Slicer sync: Year, Month, BU, Region, Branch synced and visible on all story pages + Daily (hidden-synced on Banker Detail, tooltip pages). Company on Company only. Product Group/Product on Product only. Metric (single select, default Not Executed) on Business Unit only. Level (single select, default Region) on Region only. Day on Daily only.","",
+"- Slicer sync: Year, Month, BU, Region, Branch synced and visible on all story pages (EXCEPT Business Unit, which uses Month Anchor Year/Month - NOT synced with DimDate; BU/Region/Branch still synced) + Daily (hidden-synced on Banker Detail, tooltip pages). Company on Company only. Product Group/Product on Product only. Metric (single select, default Not Executed) on Business Unit only. Level (single select, default Region) on Region only. Day on Daily only.","",
 "## SVG image measures",
 "Tag **SVG** = measure in dax/measures.dax folder 6. SVG. Re-checked 13:16 SAST: [SVG Bullet Executed vs Planned], [SVG Bullet Execution Rate vs Plan], revised [SVG Execution Progress] (plan end mark + PY tick) and revised [SVG Status Pill] (% of plan) are all in measures.dax with matching names, so no visual is pending DAX review.",
 "- **Status pill legend (3 bands, user decision):** green #006341 >= 100% of plan; amber #C98A1A 90% to under 100%; red #B03A2E below 90%. Pill text = % of plan, white Arial 10. Show this legend as a text line under every table/matrix with a pill column (Exec Overview V4T, Business Unit V1, Region V3, Branch V4T, Banker V4, Banker Detail V3, Company V1) and on the Glossary page.",

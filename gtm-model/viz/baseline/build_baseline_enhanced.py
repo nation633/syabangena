@@ -42,6 +42,7 @@ def kpis(im,d,items,y=64):
     for i,(t,v,dl) in enumerate(items):
         x=12+i*w;d.rectangle([x,y,x+w-8,y+70],outline=GR3);d.text((x+6,y+4),t,font=f(10),fill=K)
         d.text((x+6,y+20),v,font=f(20,True),fill=G)
+        if dl is None: d.text((x+6,y+50),"Aug 2026 (Month Anchor)",font=f(9),fill=K); continue
         up=dl>=0;rev=("Gap" in t or "Not Exec" in t);good=(not up) if rev else up;c=G if good else RED
         d.text((x+6,y+50),("▲ " if up else "▼ ")+f"{dl:+.1%} vs PM",font=f(9),fill=c)
 def matrix(d,x,y,rows,hdr,cw):
@@ -85,16 +86,21 @@ im.save("viz/baseline/mockups/01_Exec_Overview_enhanced_v2.png")
 
 # 2 Business Unit
 im,d=base("Business Unit  (enhanced baseline)")
-kpis(im,d,[("Planned YTD (PENDING N7)","98,140",.02),("Executed YTD (PENDING N7)","86,370",.015),("Act. with a Sale (slicer ctx)","22,410",.01),("Sales YTD (PENDING N7)","26,050",-.01),("Execution Rate %","88.0%",.004),("Conversion %","25.9%",-.003)])
-panel(d,12,145,620,250,"Rolling last 12 months: Planned | Executed | Activities With Sales (prov.)  - replaces MoM chart")
+kpis(im,d,[("Anchor Planned","9,140",None),("Anchor Executed","8,040",None),("Anchor Executed (Exec Date)","8,110",None),("Anchor Act. With Sales (prov.)","2,090",None),("Anchor Sales Count (prov.)","2,410",None),("Anchor Execution %","88.0%",None)])
+for i,(t,v) in enumerate([("Year (Month Anchor)","2026"),("Month (Month Anchor)","Aug")]):
+    x=800+i*235;d.rectangle([x,43,x+228,59],outline=GR,fill="white");d.text((x+4,45),f"{t}: {v}  v  single, NOT synced",font=f(9),fill=K)
+panel(d,12,145,620,250,"[fx: L12M Title] Planned, executed and activities with sales, Sep 2025 - Aug 2026")
 L12=["Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"]
+CL=[("#BFBFBF","#7F7F7F"),("#7FB19F","#006341"),("#A9B4C2","#4A5A6E")]
 P=[random.randint(6500,9000) for _ in L12];mx=max(P);bw=600/12
 for i,pv in enumerate(P):
-    c=G if i==11 else "#A6A6A6"
     for j,vv in enumerate([pv,int(pv*.88),int(pv*.88*.26)]):
-        bh=vv/mx*190;x0=22+i*bw+j*bw*0.27;d.rectangle([x0,380-bh,x0+bw*0.25,380],fill=c)
-    d.text((22+i*bw,382),L12[i]+(" 25" if i<4 else " 26"),font=f(8),fill=K)
-d.text((20,168),"Month slicer = Aug 2026 -> Sep 2025-Aug 2026; selected month #006341, others #A6A6A6 (L12M Bar Colour)",font=f(9),fill=K)
+        bh=vv/mx*180;x0=22+i*bw+j*bw*0.27;d.rectangle([x0,380-bh,x0+bw*0.25,380],fill=CL[j][1 if i==11 else 0])
+    d.text((26+i*bw,382),L12[i],font=f(9),fill=K)
+lx=20
+for (c0,c1),lab in zip(CL,["Planned","Executed","Activities With Sales (prov.)"]):
+    d.rectangle([lx,170,lx+9,179],fill=c1);d.text((lx+12,169),lab,font=f(9),fill=K);lx+=int(d.textlength(lab,font=f(9)))+30
+d.text((lx,169),"Aug 2026 selected = darker; tooltip shows year",font=f(9),fill=K)
 panel(d,642,145,626,250,"Executed split: with Sale vs No Sale per BU (stacked 100%, replaces donut)")
 for i,b in enumerate(["BU A","BU B","BU C","BU D"]):
     y=180+i*48;r=random.uniform(.2,.35);d.text((652,y+8),b,font=f(10),fill=K);d.rectangle([720,y,1240,y+28],fill=GR);d.rectangle([720,y,720+520*r,y+28],fill=LIME);d.text((725,y+8),f"{r:.0%} with sale",font=f(9,True),fill=K);d.text((1150,y+8),f"{1-r:.0%} no sale",font=f(9,True),fill="white")
