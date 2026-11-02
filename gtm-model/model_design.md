@@ -10,7 +10,7 @@ The model uses three native SQL queries in Power BI (`powerbi_queries/`). Connec
 ## Business rules (in MPO.sql)
 - **Filter:** IsActive=1, StatusId=2 (approved), [Date] >= '2025-01-01' (sargable).
 - **Planned date:** DateKey = [Date].
-- **Executed:** IsExecuted = ExecutedAt IS NOT NULL, and ExecutedDateKey comes from ExecutedAt. A NULL ExecutedAt means not executed. There is no fallback to the planned date.
+- **Executed:** driven by the source flag. MPO[Executed] is text 'Yes'/'No' (from MPO.Executed = 1). IsExecuted and HasSale follow Executed = 'Yes'. ExecutedDateKey comes from ExecutedAt and is filled only for executed rows; it is used only for the executed-date axis. Measures filter MPO[Executed] = "Yes".
 - **Sales:** HasSale = TotalSaleCount > 0, using the 10 ISNULL'd product columns.
 - **Columns:**
   - Region = Province.
@@ -54,7 +54,8 @@ MPO stores sales in 10 wide columns, so there is no key Product could relate to.
 ```DAX
 Planned Activities = COUNTROWS ( MPO )
 
-Executed Activities = SUM ( MPO[IsExecuted] )        -- by planned date
+Executed Activities =
+CALCULATE ( COUNTROWS ( MPO ), KEEPFILTERS ( MPO[Executed] = "Yes" ) )   -- by planned date; full measures live in dax/measures.dax (DAX Analyst)
 
 Executed (Exec Date) =
 CALCULATE ( [Executed Activities], USERELATIONSHIP ( DimDate[DATE_KEY], MPO[ExecutedDateKey] ) )

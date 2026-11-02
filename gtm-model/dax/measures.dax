@@ -1,6 +1,7 @@
 // GTM - DAX measures (TMDL). Paste into TMDL view under `table MPO`,
 // or copy each expression into New measure. Columns verified against powerbi_queries/MPO.sql:
-// key = MPO[ActivityId]; executed flag = MPO[IsExecuted] (int 1/0, = ExecutedAt IS NOT NULL).
+// key = MPO[ActivityId]; executed flag = MPO[Executed] (text "Yes"/"No").
+// ASSUMES the MPO query exposes Executed as text Yes/No (pending change by the query owner).
 // Time intelligence uses DimDate[ACTUAL_DATE] (DimDate Dual, marked as date table).
 
 table MPO
@@ -11,11 +12,11 @@ table MPO
 		formatString: #,0
 		displayFolder: 1. Volume
 
-	/// Planned activities that were carried out (have an executed date); planned date.
+	/// Planned activities that were carried out (Executed = "Yes"); planned date.
 	measure 'Executed Activities' =
 			CALCULATE (
 			    DISTINCTCOUNT ( MPO[ActivityId] ),
-			    KEEPFILTERS ( MPO[IsExecuted] = 1 )
+			    KEEPFILTERS ( MPO[Executed] = "Yes" )
 			)
 		formatString: #,0
 		displayFolder: 1. Volume
@@ -258,7 +259,7 @@ table MPO
 			// PROVISIONAL: executed activities with TotalSaleCount > 0
 			CALCULATE (
 			    DISTINCTCOUNT ( MPO[ActivityId] ),
-			    KEEPFILTERS ( MPO[IsExecuted] = 1 ),
+			    KEEPFILTERS ( MPO[Executed] = "Yes" ),
 			    KEEPFILTERS ( MPO[HasSale] = 1 )
 			)
 		formatString: #,0

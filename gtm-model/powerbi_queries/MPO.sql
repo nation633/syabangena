@@ -2,11 +2,12 @@
    Advanced options > SQL statement. Pure SELECT (read-only rights); no CTE / ORDER BY / USE.
    Cross-database 3-part names need read access to <LANDING_DB> / <STAGING_DB> on the same instance. */
 /* MPO - activity fact, DirectQuery. One row per approved activity (MPO.Id).
-   Executed = ExecutedAt IS NOT NULL (MPO.Executed flag not used; see DQ_ExecutedChecks.sql). */
+   Executed = source flag MPO.Executed (1 = 'Yes'); ExecutedAt only drives the executed-date axis. */
 SELECT
   MPO.Id                                                AS ActivityId,
   CONVERT(int, CONVERT(char(8), MPO.[Date], 112))       AS DateKey,           -- planned date
-  CONVERT(int, CONVERT(char(8), MPO.ExecutedAt, 112))   AS ExecutedDateKey,   -- NULL = not executed
+  CASE WHEN MPO.Executed = 1 THEN CONVERT(int, CONVERT(char(8), MPO.ExecutedAt, 112)) END AS ExecutedDateKey,   -- NULL if not executed or no ExecutedAt
+  CASE WHEN MPO.Executed = 1 THEN 'Yes' ELSE 'No' END AS Executed,
   ISNULL(LTRIM(RTRIM(MPO.BusinessUnit)),'Unknown')      AS BusinessUnit,
   ISNULL(LTRIM(RTRIM(MPO.Province)),'Unknown')          AS Region,
   ISNULL(LTRIM(RTRIM(MPO.MicroMarket)),'Unknown')       AS MicroMarket,
@@ -15,8 +16,8 @@ SELECT
   ISNULL(LTRIM(RTRIM(MPO.BankerName)),'Unknown')        AS BankerName,
   ISNULL(NULLIF(LTRIM(RTRIM(CASE WHEN MPO.Store = 'Other' THEN MPO.Other ELSE MPO.Store END)),''),'Unknown') AS Company,
   ISNULL(SOO.Name,'Unknown')                            AS SourceOfOpportunity,
-  CAST(CASE WHEN MPO.ExecutedAt IS NOT NULL THEN 1 ELSE 0 END AS int) AS IsExecuted,
-  CAST(CASE WHEN t.TotalSaleCount > 0 THEN 1 ELSE 0 END AS int)       AS HasSale,
+  CAST(CASE WHEN MPO.Executed = 1 THEN 1 ELSE 0 END AS int) AS IsExecuted,
+  CAST(CASE WHEN MPO.Executed = 1 AND t.TotalSaleCount > 0 THEN 1 ELSE 0 END AS int) AS HasSale,
   ISNULL(MPO.MiGoals,0)        AS MiGoals,
   ISNULL(MPO.MiGoalsPlus,0)    AS MiGoalsPlus,
   ISNULL(MPO.MiGoalsPremium,0) AS MiGoalsPremium,

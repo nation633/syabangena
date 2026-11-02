@@ -7,10 +7,16 @@ Source: `measures.dax` (table MPO). Dates: **planned** = active relationship Dim
 | Measure | Glossary wording | Logic | Date |
 |---|---|---|---|
 | Planned Activities | Approved activities bankers planned | DISTINCTCOUNT(ActivityId) | Planned |
-| Executed Activities | Planned activities that were carried out | DISTINCTCOUNT(ActivityId) where IsExecuted = 1 (has an executed date) | Planned |
+| Executed Activities | Planned activities that were carried out | DISTINCTCOUNT(ActivityId) where MPO[Executed] = "Yes" (KEEPFILTERS) | Planned |
 | Executed (Exec Date) | Same activities, placed on the day they were executed | Executed Activities + USERELATIONSHIP to ExecutedDateKey | Executed |
-| Not Executed | Planned activities with no executed date yet | Planned − Executed (blank when nothing planned) | Planned |
+| Not Executed | Planned activities not marked as executed | Planned − Executed (blank when nothing planned) | Planned |
 | Execution Rate % | Share of planned activities that were carried out | DIVIDE(Executed, Planned) | Planned |
+
+## Executed flag vs executed date
+
+**Dependency:** these measures assume the model exposes `MPO[Executed]` as text with exactly "Yes"/"No". The current MPO query does not (it drops the text flag and derives IsExecuted from ExecutedAt); this depends on the MPO query change being made by its owner. HasSale must also follow the Executed = Yes rule there.
+
+Executed is decided only by the source Executed flag (`MPO[Executed] = "Yes"`); every Executed-based measure (Executed, Not Executed, Execution Rate %, Activities With Sales, Conversion % and all PY/PM/YoY/MoM/7D variants) uses it. ExecutedDateKey (from ExecutedAt) is used only by the USERELATIONSHIP on the executed-date axis. **Rows with Executed = 'Yes' but no ExecutedAt/ExecutedDateKey have no date on that axis, so Executed (Exec Date) can be lower than Executed Activities** for the same period (see Executed1_ExecutedAtNull in DQ_ExecutedChecks.sql).
 
 ## Comparisons (folder 2. Comparisons)
 
@@ -27,7 +33,7 @@ Execution Rate has PY/PM plus **YoY pp / MoM pp** (difference in percentage poin
 | Measure | Glossary wording | Logic | Date |
 |---|---|---|---|
 | Sales Count | Number of product sales recorded on activities | SUM(TotalSaleCount), all 10 products; ignores Product slicer; includes not-executed rows | Planned |
-| Activities With Sales | Activities that produced at least one sale | DISTINCTCOUNT(ActivityId) where IsExecuted=1 and HasSale=1 | Planned |
+| Activities With Sales | Activities that produced at least one sale | DISTINCTCOUNT(ActivityId) where MPO[Executed] = "Yes" and HasSale = 1 | Planned |
 | Conversion % | Share of executed activities that produced a sale | DIVIDE(Activities With Sales, Executed Activities) | Planned |
 | Sales Count PY / PM | as above | SAMEPERIODLASTYEAR / DATEADD | Planned |
 
