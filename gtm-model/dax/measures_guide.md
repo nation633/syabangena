@@ -1,6 +1,6 @@
 # GTM DAX measures guide
 
-Source: `measures.dax` (table MPO). Dates: **planned** = active relationship DimDate[DATE_KEY]→MPO[DateKey]; **executed** = inactive DimDate[DATE_KEY]→MPO[ExecutedDateKey] via USERELATIONSHIP. Product slicer does not affect any measure except the (stubbed) product-level sales.
+Source: `measures.dax` (table MPO, 100 measures) plus `l12m_measures.dax` (6 L12M measures). Dates: **planned** = active relationship DimDate[DATE_KEY]→MPO[DateKey]; **executed** = inactive DimDate[DATE_KEY]→MPO[ExecutedDateKey] via USERELATIONSHIP. Product slicer does not affect any measure except the (stubbed) product-level sales.
 
 ## Core measures
 
@@ -145,6 +145,7 @@ DirectQuery: the MoM bar runs one grouped query over the visible members of the 
 Simple aggregations + filters on int columns fold to SQL. Time intelligence runs on DimDate (Dual), so date shifts resolve locally and send key lists to SQL. No FILTER(MPO) iteration or row-level SUMX over the fact. Check with Performance Analyzer.
 
 ## 10. L12M (rolling last 12 months, BU page)
+- Source file: `dax/l12m_measures.dax` (6 measures + table definition; not in measures.dax). Core measures.dax now has 100 measures.
 - Table `'L12M Axis'` (dax/l12m_axis.tmdl): a disconnected, Import calculated table built from DimDate months. Columns: Month Start, Month Label ("Aug 2026", sorted by Month Sort Key), Month Sort Key (yyyymm, hidden). It has no relationships. Fallback: the same 3 columns as an Import Power Query table.
 - `L12M Selected Month End`: the end of the latest selected DimDate month. With no date filter it uses the end of the month of [Data Through Date].
 - `L12M Visible Flag`: 1 when the axis month falls in the 12 months ending at the selected month.
