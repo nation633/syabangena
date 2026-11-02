@@ -1,0 +1,18 @@
+// Alternative DimProduct (Import calculated table) if cross-database query is not permitted.
+// Modeling > New table. Disconnected slicer table (no relationships). Columns: ProductColumn = MPO column name.
+Product =
+DATATABLE (
+    "ProductColumn", STRING, "Product", STRING, "ProductSort", INTEGER, "ProductGroup", STRING, "NeedsConfirmation", STRING,
+    {
+        { "MiGoals", "MiGoals", 1, "TP", "N" },
+        { "MiGoalsPlus", "MiGoals Plus", 2, "TP", "N" },
+        { "MiGoalsPremium", "MiGoals Premium", 3, "TP", "N" },
+        { "PlIntake", "Personal Loan Intake", 4, "PLI", "N" },
+        { "OdApp", "Overdraft Application", 5, "OD", "Y" },
+        { "CcApp", "Credit Card Application", 6, "UNKNOWN", "Y" },
+        { "Investments", "Investments", 7, "UNKNOWN", "Y" },
+        { "FPFixed", "Funeral Plan Fixed", 8, "FP-A FIXED", "N" },
+        { "FPBYO", "Funeral Plan BYO", 9, "FP-A BYO", "N" },
+        { "FPMCL", "Funeral Plan MCL", 10, "UNKNOWN", "Y" }
+    }
+)

@@ -1,0 +1,11 @@
+ProductColumn,ProductSort,ReportingProduct,MapToProductName_Like,MapToProductGroupName,MapToMTDProductGroup,Confidence,NeedsConfirmation,Notes
+MiGoals,1,MiGoals,TP,TP,MiGoals,High,N,MTD_PRODUCT_GROUP = MiGoals
+MiGoalsPlus,2,MiGoals Plus,TP,TP,MiGoals Plus,High,N,MTD_PRODUCT_GROUP = MiGoals Plus
+MiGoalsPremium,3,MiGoals Premium,TP,TP,MiGoals Premium,High,N,MTD_PRODUCT_GROUP = MiGoals Premium
+PlIntake,4,Personal Loan Intake,PLI,PLI,,High,N,Personal Loans Intake
+OdApp,5,Overdraft Application,OD,OD,,Medium,Y,Could be OD / ODA-A / ODA-C / ODLI
+CcApp,6,Credit Card Application,,UNKNOWN,,Low,Y,No credit card rows seen in <PRODUCT_LOOKUP_TABLE>
+Investments,7,Investments,,UNKNOWN,,Low,Y,No investment rows seen
+FPFixed,8,Funeral Plan Fixed,FP-A FIXED,FP-A FIXED,,High,N,MyCover Funeral rows
+FPBYO,9,Funeral Plan BYO,FP-A BYO,FP-A BYO,,High,N,Build Your Own Funeral Plan
+FPMCL,10,Funeral Plan MCL,,UNKNOWN (Funeral?),,Low,Y,MyCover Life? not visible in lookup
