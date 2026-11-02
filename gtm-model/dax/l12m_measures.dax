@@ -157,11 +157,13 @@ table 'L12M Axis'
 // ---- Measures (TMDL, table _mymeasures) ---------------------------------------------
 table _mymeasures
 
-	/// Start of the latest month with planned activities (ignores all date and anchor filters).
+	/// Start of the latest month with planned activities, capped at the current month (planned dates can lie in the future). Ignores all date and anchor filters.
 	measure 'L12M Latest Data Month' =
+			// 2026-11-02 visual 01 review: capped at TODAY() so future-planned activities cannot push the default window past the current month.
 			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
+			VAR _Capped  = IF ( NOT ISBLANK ( _Through ), MIN ( _Through, TODAY () ) )
 			RETURN
-			    IF ( NOT ISBLANK ( _Through ), DATE ( YEAR ( _Through ), MONTH ( _Through ), 1 ) )
+			    IF ( NOT ISBLANK ( _Capped ), DATE ( YEAR ( _Capped ), MONTH ( _Capped ), 1 ) )
 		formatString: mmm yyyy
 		displayFolder: 10. L12M
 
@@ -228,17 +230,17 @@ table _mymeasures
 		formatString: #,0
 		displayFolder: 10. L12M
 
-	/// Executed Activities for the axis month inside the window; executed date (USERELATIONSHIP on ExecutedDateKey).
+	/// Executed Activities for the axis month inside the window; EXECUTED date (via [Executed (Exec Date)] = USERELATIONSHIP on ExecutedDateKey).
 	measure 'L12M Executed' =
+			// 2026-11-02 visual 01 review: reuses [Executed (Exec Date)] so the USERELATIONSHIP lives in one place.
 			VAR _Axis = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
 			RETURN
 			    IF (
 			        [L12M Visible Flag] = 1,
 			        CALCULATE (
-			            [Executed Activities],
+			            [Executed (Exec Date)],
 			            REMOVEFILTERS ( Dim_Date ),
-			            DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) ),
-			            USERELATIONSHIP ( Dim_Date[DATE_KEY], MPO[ExecutedDateKey] )
+			            DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) )
 			        )
 			    )
 		formatString: #,0
@@ -262,13 +264,16 @@ table _mymeasures
 
 	/// 1 when the axis month is the selected month (bar 12), else 0.
 	measure 'L12M Is Selected Month' =
-			IF ( SELECTEDVALUE ( 'L12M Axis'[Month Start] ) = [L12M Selected Month], 1, 0 )
+			VAR _Axis = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
+			VAR _Sel  = [L12M Selected Month]
+			RETURN
+			    IF ( NOT ISBLANK ( _Axis ) && NOT ISBLANK ( _Sel ) && _Axis = _Sel, 1, 0 )   -- guard: blank = blank must not count as selected
 		formatString: 0
 		displayFolder: 10. L12M
 
-	/// Planned series colour: light grey, darker grey for the selected month.
+	/// Planned series colour: pale green, mid green for the selected month (corporate greens, no grey).
 	measure 'L12M Bar Colour Planned' =
-			IF ( [L12M Is Selected Month] = 1, "#7F7F7F", "#BFBFBF" )
+			IF ( [L12M Is Selected Month] = 1, "#99C2B3", "#D6E8E0" )
 		displayFolder: 10. L12M
 
 	/// Executed series colour: light green, full green for the selected month.
