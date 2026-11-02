@@ -1,10 +1,10 @@
-// GTM - DAX measures (TMDL). Paste into TMDL view under `table MPO`,
+// GTM - DAX measures (TMDL). Paste into TMDL view under `table _mymeasures`,
 // or copy each expression into New measure. Columns verified against powerbi_queries/MPO.sql:
 // key = MPO[ActivityId]; executed flag = MPO[Executed] (text "Yes"/"No").
 // ASSUMES the MPO query exposes Executed as text Yes/No (pending change by the query owner).
-// Time intelligence uses DimDate[ACTUAL_DATE] (DimDate Dual, marked as date table).
+// Time intelligence uses Dim_Date[ACTUAL_DATE] (Dim_Date Dual, marked as date table).
 
-table MPO
+table _mymeasures
 
 	/// Approved activities bankers planned; planned date.
 	measure 'Planned Activities' =
@@ -25,7 +25,7 @@ table MPO
 	measure 'Executed (Exec Date)' =
 			CALCULATE (
 			    [Executed Activities],
-			    USERELATIONSHIP ( DimDate[DATE_KEY], MPO[ExecutedDateKey] )
+			    USERELATIONSHIP ( Dim_Date[DATE_KEY], MPO[ExecutedDateKey] )
 			)
 		formatString: #,0
 		displayFolder: 1. Volume
@@ -47,13 +47,13 @@ table MPO
 
 	/// Planned Activities for the same period last year.
 	measure 'Planned PY' =
-			CALCULATE ( [Planned Activities], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Planned Activities], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Planned
 
 	/// Planned Activities for the previous month.
 	measure 'Planned PM' =
-			CALCULATE ( [Planned Activities], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Planned Activities], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Planned
 
@@ -77,13 +77,13 @@ table MPO
 
 	/// Executed Activities for the same period last year.
 	measure 'Executed PY' =
-			CALCULATE ( [Executed Activities], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Executed Activities], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Executed
 
 	/// Executed Activities for the previous month.
 	measure 'Executed PM' =
-			CALCULATE ( [Executed Activities], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Executed Activities], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Executed
 
@@ -107,13 +107,13 @@ table MPO
 
 	/// Executed (Exec Date) for the same period last year.
 	measure 'Executed (Exec Date) PY' =
-			CALCULATE ( [Executed (Exec Date)], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Executed (Exec Date)], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Executed (Exec Date)
 
 	/// Executed (Exec Date) for the previous month.
 	measure 'Executed (Exec Date) PM' =
-			CALCULATE ( [Executed (Exec Date)], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Executed (Exec Date)], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Executed (Exec Date)
 
@@ -137,13 +137,13 @@ table MPO
 
 	/// Not Executed for the same period last year.
 	measure 'Not Executed PY' =
-			CALCULATE ( [Not Executed], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Not Executed], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Not Executed
 
 	/// Not Executed for the previous month.
 	measure 'Not Executed PM' =
-			CALCULATE ( [Not Executed], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Not Executed], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: #,0
 		displayFolder: 2. Comparisons\Not Executed
 
@@ -167,13 +167,13 @@ table MPO
 
 	/// Execution Rate % same period last year.
 	measure 'Execution Rate PY' =
-			CALCULATE ( [Execution Rate %], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Execution Rate %], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: 0.0%;-0.0%;0.0%
 		displayFolder: 2. Comparisons\Execution Rate
 
 	/// Execution Rate % previous month.
 	measure 'Execution Rate PM' =
-			CALCULATE ( [Execution Rate %], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Execution Rate %], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: 0.0%;-0.0%;0.0%
 		displayFolder: 2. Comparisons\Execution Rate
 
@@ -197,9 +197,9 @@ table MPO
 
 	/// Average daily Planned Activities over the 7 calendar days ending on the current day.
 	measure 'Planned 7D Avg' =
-			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _LastDay = MAX ( Dim_Date[ACTUAL_DATE] )
 			VAR _Window =
-			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			    DATESINPERIOD ( Dim_Date[ACTUAL_DATE], _LastDay, -7, DAY )
 			RETURN
 			    IF (
 			        NOT ISBLANK ( _LastDay ),
@@ -210,9 +210,9 @@ table MPO
 
 	/// Average daily Executed Activities over the 7 calendar days ending on the current day.
 	measure 'Executed 7D Avg' =
-			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _LastDay = MAX ( Dim_Date[ACTUAL_DATE] )
 			VAR _Window =
-			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			    DATESINPERIOD ( Dim_Date[ACTUAL_DATE], _LastDay, -7, DAY )
 			RETURN
 			    IF (
 			        NOT ISBLANK ( _LastDay ),
@@ -223,9 +223,9 @@ table MPO
 
 	/// Average daily Executed (Exec Date) over the 7 calendar days ending on the current day.
 	measure 'Executed (Exec Date) 7D Avg' =
-			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _LastDay = MAX ( Dim_Date[ACTUAL_DATE] )
 			VAR _Window =
-			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			    DATESINPERIOD ( Dim_Date[ACTUAL_DATE], _LastDay, -7, DAY )
 			RETURN
 			    IF (
 			        NOT ISBLANK ( _LastDay ),
@@ -236,9 +236,9 @@ table MPO
 
 	/// Average daily Not Executed over the 7 calendar days ending on the current day.
 	measure 'Not Executed 7D Avg' =
-			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _LastDay = MAX ( Dim_Date[ACTUAL_DATE] )
 			VAR _Window =
-			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			    DATESINPERIOD ( Dim_Date[ACTUAL_DATE], _LastDay, -7, DAY )
 			RETURN
 			    IF (
 			        NOT ISBLANK ( _LastDay ),
@@ -274,13 +274,13 @@ table MPO
 
 	/// PROVISIONAL.
 	measure 'Sales Count PY' =
-			CALCULATE ( [Sales Count], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Sales Count], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 4. Sales (PROVISIONAL)
 
 	/// PROVISIONAL.
 	measure 'Sales Count PM' =
-			CALCULATE ( [Sales Count], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Sales Count], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: #,0
 		displayFolder: 4. Sales (PROVISIONAL)
 
@@ -304,13 +304,13 @@ table MPO
 
 	/// PROVISIONAL. Same period last year; planned date.
 	measure 'Activities With Sales PY' =
-			CALCULATE ( [Activities With Sales], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Activities With Sales], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 4. Sales (PROVISIONAL)
 
 	/// PROVISIONAL. Previous month; planned date.
 	measure 'Activities With Sales PM' =
-			CALCULATE ( [Activities With Sales], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Activities With Sales], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: #,0
 		displayFolder: 4. Sales (PROVISIONAL)
 
@@ -334,13 +334,13 @@ table MPO
 
 	/// PROVISIONAL. Conversion % same period last year.
 	measure 'Conversion PY' =
-			CALCULATE ( [Conversion %], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Conversion %], SAMEPERIODLASTYEAR ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: 0.0%;-0.0%;0.0%
 		displayFolder: 4. Sales (PROVISIONAL)
 
 	/// PROVISIONAL. Conversion % previous month.
 	measure 'Conversion PM' =
-			CALCULATE ( [Conversion %], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+			CALCULATE ( [Conversion %], DATEADD ( Dim_Date[ACTUAL_DATE], -1, MONTH ) )
 		formatString: 0.0%;-0.0%;0.0%
 		displayFolder: 4. Sales (PROVISIONAL)
 
@@ -365,9 +365,9 @@ table MPO
 	/// PROVISIONAL. Average daily Sales Count over the 7 calendar days ending on the current day; planned date.
 	measure 'Sales Count 7D Avg' =
 			// PROVISIONAL (Sales Count)
-			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _LastDay = MAX ( Dim_Date[ACTUAL_DATE] )
 			VAR _Window =
-			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			    DATESINPERIOD ( Dim_Date[ACTUAL_DATE], _LastDay, -7, DAY )
 			RETURN
 			    IF (
 			        NOT ISBLANK ( _LastDay ),
@@ -516,7 +516,7 @@ table MPO
 			VAR _Months =
 			    FILTER (
 			        ADDCOLUMNS (
-			            VALUES ( DimDate[YEAR_MONTH_KEY] ),
+			            VALUES ( Dim_Date[YEAR_MONTH_KEY] ),
 			            "@P", [Planned Activities],
 			            "@E", [Executed Activities] + 0,
 			            "@N", [Not Executed] + 0
@@ -527,8 +527,8 @@ table MPO
 			    ADDCOLUMNS (
 			        _Months,
 			        "@i",
-			            VAR _k = DimDate[YEAR_MONTH_KEY]
-			            RETURN COUNTROWS ( FILTER ( _Months, DimDate[YEAR_MONTH_KEY] < _k ) ) + 0
+			            VAR _k = Dim_Date[YEAR_MONTH_KEY]
+			            RETURN COUNTROWS ( FILTER ( _Months, Dim_Date[YEAR_MONTH_KEY] < _k ) ) + 0
 			    )
 			VAR _n = COUNTROWS ( _Months )
 			VAR _Max = MAX ( MAXX ( _Months, [@E] ), MAXX ( _Months, [@N] ) )
@@ -664,24 +664,24 @@ table MPO
 	/// Text for the Region selection.
 	measure 'Sel Region' =
 			IF ( ISFILTERED ( MPO[Region] ),
-			    IF ( HASONEVALUE ( MPO[Region] ), VALUES ( MPO[Region] ), COUNTROWS ( VALUES ( MPO[Region] ) ) & " regions" ),
+			    IF ( HASONEVALUE ( MPO[Region] ), SELECTEDVALUE ( MPO[Region] ), COUNTROWS ( VALUES ( MPO[Region] ) ) & " regions" ),
 			    "All regions" )
 		displayFolder: 7. Titles
 
-	/// Text for the date selection (DimDate range).
+	/// Text for the date selection (Dim_Date range).
 	measure 'Sel Period' =
-			VAR _Min = MIN ( DimDate[ACTUAL_DATE] )
-			VAR _Max = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Min = MIN ( Dim_Date[ACTUAL_DATE] )
+			VAR _Max = MAX ( Dim_Date[ACTUAL_DATE] )
 			RETURN
-			    IF ( ISFILTERED ( DimDate ),
+			    IF ( ISFILTERED ( Dim_Date ),
 			        FORMAT ( _Min, "d MMM yyyy" ) & " - " & FORMAT ( _Max, "d MMM yyyy" ),
 			        "All dates" )
 		displayFolder: 7. Titles
 
 	/// Overview V2 title.
 	measure 'Title - Executed vs PY' =
-			VAR _BU = IF ( HASONEVALUE ( MPO[BusinessUnit] ) && ISFILTERED ( MPO[BusinessUnit] ), VALUES ( MPO[BusinessUnit] ) & " | " )
-			VAR _Br = IF ( HASONEVALUE ( MPO[Branch] ) && ISFILTERED ( MPO[Branch] ), VALUES ( MPO[Branch] ) & " | " )
+			VAR _BU = IF ( HASONEVALUE ( MPO[BusinessUnit] ) && ISFILTERED ( MPO[BusinessUnit] ), SELECTEDVALUE ( MPO[BusinessUnit] ) & " | " )
+			VAR _Br = IF ( HASONEVALUE ( MPO[Branch] ) && ISFILTERED ( MPO[Branch] ), SELECTEDVALUE ( MPO[Branch] ) & " | " )
 			RETURN
 			    "Executed vs not executed by month | " & _BU & [Sel Region] & " | " & _Br & [Sel Period]
 		displayFolder: 7. Titles
@@ -708,7 +708,7 @@ table MPO
 			VAR _pp = [Execution Rate YoY pp]
 			VAR _Sel =
 			    IF ( ISFILTERED ( MPO[BusinessUnit] ),
-			        IF ( HASONEVALUE ( MPO[BusinessUnit] ), VALUES ( MPO[BusinessUnit] ), COUNTROWS ( VALUES ( MPO[BusinessUnit] ) ) & " business units" ),
+			        IF ( HASONEVALUE ( MPO[BusinessUnit] ), SELECTEDVALUE ( MPO[BusinessUnit] ), COUNTROWS ( VALUES ( MPO[BusinessUnit] ) ) & " business units" ),
 			        "All business units" )
 			RETURN
 			    "Business unit: " & _Sel
@@ -727,7 +727,7 @@ table MPO
 			VAR _pp = [Execution Rate YoY pp]
 			VAR _Sel =
 			    IF ( ISFILTERED ( MPO[Region] ),
-			        IF ( HASONEVALUE ( MPO[Region] ), VALUES ( MPO[Region] ), COUNTROWS ( VALUES ( MPO[Region] ) ) & " regions" ),
+			        IF ( HASONEVALUE ( MPO[Region] ), SELECTEDVALUE ( MPO[Region] ), COUNTROWS ( VALUES ( MPO[Region] ) ) & " regions" ),
 			        "All regions" )
 			RETURN
 			    "Region: " & _Sel
@@ -746,7 +746,7 @@ table MPO
 			VAR _pp = [Execution Rate YoY pp]
 			VAR _Sel =
 			    IF ( ISFILTERED ( MPO[Branch] ),
-			        IF ( HASONEVALUE ( MPO[Branch] ), VALUES ( MPO[Branch] ), COUNTROWS ( VALUES ( MPO[Branch] ) ) & " branches" ),
+			        IF ( HASONEVALUE ( MPO[Branch] ), SELECTEDVALUE ( MPO[Branch] ), COUNTROWS ( VALUES ( MPO[Branch] ) ) & " branches" ),
 			        "All branches" )
 			RETURN
 			    "Branch: " & _Sel
@@ -765,7 +765,7 @@ table MPO
 			VAR _pp = [Execution Rate YoY pp]
 			VAR _Sel =
 			    IF ( ISFILTERED ( MPO[Company] ),
-			        IF ( HASONEVALUE ( MPO[Company] ), VALUES ( MPO[Company] ), COUNTROWS ( VALUES ( MPO[Company] ) ) & " companies" ),
+			        IF ( HASONEVALUE ( MPO[Company] ), SELECTEDVALUE ( MPO[Company] ), COUNTROWS ( VALUES ( MPO[Company] ) ) & " companies" ),
 			        "All companies" )
 			RETURN
 			    "Company: " & _Sel
@@ -1012,17 +1012,17 @@ table MPO
 	// Planned date, like the existing PM / MoM measures. Sales ones PROVISIONAL.
 	// ---------------------------------------------------------------------------
 
-	/// N1. Latest DimDate[ACTUAL_DATE] with planned activities in the current context.
+	/// N1. Latest Dim_Date[ACTUAL_DATE] with planned activities in the current context.
 	measure 'Data Through Date' =
-			LASTNONBLANK ( DimDate[ACTUAL_DATE], [Planned Activities] )
+			LASTNONBLANK ( Dim_Date[ACTUAL_DATE], [Planned Activities] )
 		formatString: d mmm yyyy
 		displayFolder: 9. Partial Month & YTD
 
 	/// N2. TRUE when the month in context runs past the latest planned date in the data (ignores date filters).
 	measure 'Is Partial Month' =
-			VAR _Through   = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
-			VAR _CtxStart  = MIN ( DimDate[ACTUAL_DATE] )
-			VAR _CtxEnd    = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Through   = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
+			VAR _CtxStart  = MIN ( Dim_Date[ACTUAL_DATE] )
+			VAR _CtxEnd    = MAX ( Dim_Date[ACTUAL_DATE] )
 			RETURN
 			    NOT ISBLANK ( _Through ) && _CtxStart <= _Through && EOMONTH ( _CtxEnd, 0 ) > _Through
 		formatString: """TRUE"";""TRUE"";""FALSE"""
@@ -1030,38 +1030,38 @@ table MPO
 
 	/// N3. Executed Activities in the previous month, days 1..DAY(cut-off); cut-off = Data Through Date in a partial month, else month end. Capped at the shorter month's end. One month in context only.
 	measure 'Executed PM Same Days' =
-			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
-			VAR _Cut     = MIN ( MAX ( DimDate[ACTUAL_DATE] ), _Through )
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
+			VAR _Cut     = MIN ( MAX ( Dim_Date[ACTUAL_DATE] ), _Through )
 			VAR _PMStart = EOMONTH ( _Cut, -2 ) + 1
 			VAR _PMEnd   = MIN ( EOMONTH ( _Cut, -1 ), _PMStart + DAY ( _Cut ) - 1 )
 			RETURN
-			    IF ( HASONEVALUE ( DimDate[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
-			        CALCULATE ( [Executed Activities], REMOVEFILTERS ( DimDate ), DATESBETWEEN ( DimDate[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
+			    IF ( HASONEVALUE ( Dim_Date[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
+			        CALCULATE ( [Executed Activities], REMOVEFILTERS ( Dim_Date ), DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
 		formatString: #,0
 		displayFolder: 9. Partial Month & YTD
 
 	/// N3. Planned Activities, previous month same days (see Executed PM Same Days).
 	measure 'Planned PM Same Days' =
-			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
-			VAR _Cut     = MIN ( MAX ( DimDate[ACTUAL_DATE] ), _Through )
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
+			VAR _Cut     = MIN ( MAX ( Dim_Date[ACTUAL_DATE] ), _Through )
 			VAR _PMStart = EOMONTH ( _Cut, -2 ) + 1
 			VAR _PMEnd   = MIN ( EOMONTH ( _Cut, -1 ), _PMStart + DAY ( _Cut ) - 1 )
 			RETURN
-			    IF ( HASONEVALUE ( DimDate[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
-			        CALCULATE ( [Planned Activities], REMOVEFILTERS ( DimDate ), DATESBETWEEN ( DimDate[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
+			    IF ( HASONEVALUE ( Dim_Date[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
+			        CALCULATE ( [Planned Activities], REMOVEFILTERS ( Dim_Date ), DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
 		formatString: #,0
 		displayFolder: 9. Partial Month & YTD
 
 	/// N3. PROVISIONAL. Sales Count, previous month same days (see Executed PM Same Days).
 	measure 'Sales Count PM Same Days' =
 			// PROVISIONAL (Sales Count)
-			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
-			VAR _Cut     = MIN ( MAX ( DimDate[ACTUAL_DATE] ), _Through )
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
+			VAR _Cut     = MIN ( MAX ( Dim_Date[ACTUAL_DATE] ), _Through )
 			VAR _PMStart = EOMONTH ( _Cut, -2 ) + 1
 			VAR _PMEnd   = MIN ( EOMONTH ( _Cut, -1 ), _PMStart + DAY ( _Cut ) - 1 )
 			RETURN
-			    IF ( HASONEVALUE ( DimDate[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
-			        CALCULATE ( [Sales Count], REMOVEFILTERS ( DimDate ), DATESBETWEEN ( DimDate[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
+			    IF ( HASONEVALUE ( Dim_Date[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
+			        CALCULATE ( [Sales Count], REMOVEFILTERS ( Dim_Date ), DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
 		formatString: #,0
 		displayFolder: 9. Partial Month & YTD
 
@@ -1103,25 +1103,25 @@ table MPO
 
 	/// N7. Executed Activities, year to date (planned date).
 	measure 'Executed YTD' =
-			CALCULATE ( [Executed Activities], DATESYTD ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Executed Activities], DATESYTD ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 9. Partial Month & YTD
 
 	/// N7. Planned Activities, year to date.
 	measure 'Planned YTD' =
-			CALCULATE ( [Planned Activities], DATESYTD ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Planned Activities], DATESYTD ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 9. Partial Month & YTD
 
 	/// N7. PROVISIONAL. Sales Count, year to date.
 	measure 'Sales Count YTD' =
-			CALCULATE ( [Sales Count], DATESYTD ( DimDate[ACTUAL_DATE] ) )
+			CALCULATE ( [Sales Count], DATESYTD ( Dim_Date[ACTUAL_DATE] ) )
 		formatString: #,0
 		displayFolder: 9. Partial Month & YTD
 
 	/// N8. "Month to date, through 14 Oct" when the month is partial; blank otherwise.
 	measure 'Partial Month Label' =
-			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
 			RETURN
 			    IF ( [Is Partial Month], "Month to date, through " & FORMAT ( _Through, "d mmm" ) )
 		displayFolder: 9. Partial Month & YTD
@@ -1208,7 +1208,7 @@ table MPO
 // Waits on: (a) mapping answers for OdApp (OD/ODA-A/ODA-C/ODLI), CcApp,
 // Investments, FPMCL (open_questions #11); (b) date axis rule - planned vs
 // executed date (#3); (c) whether sales on not-executed activities count (#2).
-// Uncomment inside table MPO when confirmed.
+// Uncomment inside table _mymeasures when confirmed.
 // ---------------------------------------------------------------------------
 //	measure 'Sales Count (Product)' =
 //			VAR _Cols = DISTINCT ( Product[ProductColumn] )

@@ -1,6 +1,6 @@
 # GTM DAX measures guide
 
-Source: `measures.dax` (table MPO, 100 measures) plus `l12m_measures.dax` (19 L12M measures). Dates: **planned** = active relationship DimDate[DATE_KEY]→MPO[DateKey]; **executed** = inactive DimDate[DATE_KEY]→MPO[ExecutedDateKey] via USERELATIONSHIP. Product slicer does not affect any measure except the (stubbed) product-level sales.
+Source: `measures.dax` (home table _mymeasures, 100 measures) plus `l12m_measures.dax` (19 L12M measures). Dates: **planned** = active relationship Dim_Date[DATE_KEY]→MPO[DateKey]; **executed** = inactive Dim_Date[DATE_KEY]→MPO[ExecutedDateKey] via USERELATIONSHIP. Product slicer does not affect any measure except the (stubbed) product-level sales.
 
 ## Core measures
 
@@ -26,7 +26,7 @@ Execution Rate has PY/PM plus **YoY pp / MoM pp** (difference in percentage poin
 
 ## Rolling (folder 3. Rolling)
 
-`<measure> 7D Avg` for Planned, Executed, Executed (Exec Date), Not Executed: total over the 7 calendar days ending on the day in context ÷ 7 (days in DimDate window). Use on daily axes. Weekends/holidays are included (open question #14; filter IS_WEEKDAY if excluded).
+`<measure> 7D Avg` for Planned, Executed, Executed (Exec Date), Not Executed: total over the 7 calendar days ending on the day in context ÷ 7 (days in Dim_Date window). Use on daily axes. Weekends/holidays are included (open question #14; filter IS_WEEKDAY if excluded).
 
 ## Sales – PROVISIONAL (folder 4)
 
@@ -80,7 +80,7 @@ Note: Executed can never exceed Planned, so green means every planned activity w
 | Measure | Text |
 |---|---|
 | Sel Region | Name of the one selected region, "N regions", or "All regions" |
-| Sel Period | "d MMM yyyy - d MMM yyyy" from DimDate when it is filtered, otherwise "All dates" |
+| Sel Period | "d MMM yyyy - d MMM yyyy" from Dim_Date when it is filtered, otherwise "All dates" |
 | Title - Executed vs PY | Overview V2: "Executed vs not executed by month \| [BU] \| region \| [Branch] \| period" |
 | Title - Banker Detail | "Banker: name \| period \| Executed NN.N% of plan (x of y) (+n.n pp vs PY)", where the pp suffix appears only when PY exists; or "no planned activities" |
 | Title - Business Unit / Title - Region / Title - Branch / Title - Company | "<Level>: All <level>s / single value / N <level>s \| period \| Executed NN.N% of plan (x of y) (+n.n pp vs PY)". The pp suffix only appears when PY exists; "no planned activities" when Planned is blank. % rounded down |
@@ -108,12 +108,12 @@ SVG Dumbbell CY vs PY stays **120 px** wide: it has no text labels (dots and lin
 DirectQuery: the MoM bar runs one grouped query over the visible members of the level in scope; the others are scalar. Bands: `_GreenFrom = 1`, `_AmberFrom = 0.9`, amber %23C98A1A.
 
 ## 9. Partial Month & YTD (story/baseline_enhancements.md N1-N8; planned date; sales PROVISIONAL)
-- Data Through Date (N1): latest DimDate[ACTUAL_DATE] with planned activities in context (LASTNONBLANK). Note: if future-dated plans exist, this is a future date; QA in Power BI.
+- Data Through Date (N1): latest Dim_Date[ACTUAL_DATE] with planned activities in context (LASTNONBLANK). Note: if future-dated plans exist, this is a future date; QA in Power BI.
 - Is Partial Month (N2): TRUE when the month in context runs past the overall Data Through Date (date filters removed). Use for lighter shading of the partial month.
 - Executed / Planned / Sales Count PM Same Days (N3): previous month, days 1..DAY(cut-off). Cut-off = Data Through Date in a partial month, else month end; capped at the previous month's end (e.g. 31 Mar compares to 1-28/29 Feb). Needs one month in context (HASONEVALUE YEAR_MONTH_KEY), else blank.
 - Executed / Planned / Sales Count MoM % Like-for-Like (N4): DIVIDE ( current - PM Same Days, PM Same Days ). Arrows: SVG KPI Arrow Executed MoM LfL, SVG KPI Arrow Planned MoM LfL, SVG KPI Arrow Sales Count MoM LfL (folder 6. SVG, 80x18, same style as the MoM arrows).
 - Low Volume Flag (N5): 1 when Planned Activities < _MinPlanned (PLACEHOLDER 20), else 0. For ROUTE 99: visual/page filter, grey-out or sort-last.
-- Executed / Planned / Sales Count YTD (N7): DATESYTD on DimDate[ACTUAL_DATE].
+- Executed / Planned / Sales Count YTD (N7): DATESYTD on Dim_Date[ACTUAL_DATE].
 - Partial Month Label (N8): "Month to date, through 14 Oct" when partial, blank otherwise.
 - NOT WRITTEN: Avg Executed Activities with Sales (N6), definition pending (open question #16).
 - SVG KPI Arrow Gap to Plan (folder 6. SVG): uses Not Executed MoM % (Gap to Plan = Not Executed), REVERSED colours: rise red, drop green.
@@ -142,16 +142,23 @@ DirectQuery: the MoM bar runs one grouped query over the visible members of the 
 - ... YTD: from 1 January to the end of the selected period.
 
 ## DirectQuery notes
-Simple aggregations + filters on int columns fold to SQL. Time intelligence runs on DimDate (Dual), so date shifts resolve locally and send key lists to SQL. No FILTER(MPO) iteration or row-level SUMX over the fact. Check with Performance Analyzer.
+Simple aggregations + filters on int columns fold to SQL. Time intelligence runs on Dim_Date (Dual), so date shifts resolve locally and send key lists to SQL. No FILTER(MPO) iteration or row-level SUMX over the fact. Check with Performance Analyzer.
 
 ## 10. L12M (rolling last 12 months, BU page) - Month Anchor rework
-- Source file: `dax/l12m_measures.dax` (2 table definitions + 19 measures; not in measures.dax). measures.dax keeps 100 measures, so 119 in total. `dax/l12m_axis.tmdl` is SUPERSEDED.
-- `'Month Anchor'` (disconnected, Import calculated table from DimDate months): Month Start, Year, Month Number (hidden), Month Short ("Aug", sorted by Month Number), Month Sort Key (YYYYMM, hidden), Relative Month Index (0 = calendar month at refresh). It drives the Year and Month slicers on the BU page.
+- Source file: `dax/l12m_measures.dax` (2 table definitions + 38 measures; not in measures.dax). measures.dax keeps 100 measures, so 138 in total. `dax/l12m_axis.tmdl` is SUPERSEDED.
+- `'Month Anchor'` (disconnected, Import calculated table from Dim_Date months): Month Start, Year, Month Number (hidden), Month Short ("Aug", sorted by Month Number), Month Sort Key (YYYYMM, hidden), Relative Month Index (0 = calendar month at refresh). It drives the Year and Month slicers on the BU page.
 - `'L12M Axis'` (disconnected, separate copy of the months): Month Start (hidden), Month Sort Key (hidden), Axis Label. Axis Label = "Aug" plus zero-width spaces (one per year after the first year), so each month is unique but shows only "Aug". Sorted by Month Sort Key, so the bars are always in date order. It has to be a separate table: a slicer on the anchor would cut the axis down to one month.
 - The axis shows short month names only (e.g. Sep ... Aug), never the year. The year is in the tooltip (`L12M Month Label`) and the title (`L12M Title`).
 - `L12M Latest Data Month`: the month of [Data Through Date], ignoring date filters. `L12M Selected Month`: the latest selected anchor month up to the latest data month. If nothing is selected, it's the latest data month.
 - `L12M Visible Flag` (visual filter = 1), `L12M Position` (1-12, 12 = selected month), `L12M Is Selected Month`.
 - `L12M Planned`, `L12M Executed` (executed date, USERELATIONSHIP on ExecutedDateKey), `L12M Activities With Sales` (PROVISIONAL, planned date).
 - Colours (fx > Field value, per series): `L12M Bar Colour Planned` #BFBFBF / #7F7F7F selected; `L12M Bar Colour Executed` #7FB19F / #006341 selected; `L12M Bar Colour Sales` #A9B4C2 / #4A5A6E selected. The old single `L12M Bar Colour` and `L12M Selected Month End` are removed.
-- Anchor KPIs (folder 10. L12M\Anchor KPIs): `Anchor Planned`, `Anchor Executed`, `Anchor Executed (Exec Date)`, `Anchor Activities With Sales`, `Anchor Sales Count` (both PROVISIONAL) and `Anchor Execution %`. Each one is the base measure with TREATAS(anchor Year + Month Number -> DimDate[YEAR], DimDate[MONTH]). If nothing is selected, it uses the latest data month. Use these on BU page cards in place of the base measures. The base measures are unchanged.
+- Anchor KPIs (folder 10. L12M\Anchor KPIs), refactored 2026-11-02 around ONE helper, `L12M Selected Month` (the chart's last bar). Every wrapper is `CALCULATE ( [Base], REMOVEFILTERS ( Dim_Date ), TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) )`, so the Anchor measures always show exactly one month, the same as bar 12:
+  - Year + Month picked: that month. Year only: the latest data month in that year (e.g. 2025 only = Dec 2025 if Dec has data). Nothing picked: the latest data month. A month-only pick uses the latest year with data for that month.
+  - Ratios are DIVIDE of Anchor measures (Anchor Execution %, Anchor Gap to Plan %, Anchor Conversion % (prov.)).
+  - Counts: Anchor Planned, Anchor Executed, Anchor Executed (Exec Date), Anchor Not Executed, Anchor Gap to Plan, Anchor Activities With Sales (prov.), Anchor Sales Count (prov.), Anchor Executed No Sale (prov.), Anchor Executed PY, Anchor Executed MoM Diff, Anchor Executed CY vs PY Diff. Rates: Anchor Execution Rate PY, Anchor Execution Rate YoY pp. Images: Anchor SVG Bullet Executed vs Planned, Anchor SVG Floating Bar Gap to Plan, Anchor SVG Dumbbell CY vs PY, Anchor SVG Status Pill, Anchor SVG MoM Change Bar, Anchor SVG Sparkline Executed (12 months ending at the anchor month). Title: Anchor Title - Business Unit. Helpers: Anchor Month Key (YYYYMM, QA), Anchor L12M Window Flag (visual filter = 1 on Dim_Date month-axis charts such as the BU small multiples).
+  - Field parameter `'Anchor Metric'` (dax/field_parameters.tmdl): same 6 labels as Metric, pointing at Anchor measures, for the BU decomposition tree.
+  - Anchor Executed counts executed activities by the PLANNED month; Anchor Executed (Exec Date) counts them by the month they were EXECUTED. The two cards can differ (an activity planned in Jul and executed in Aug counts in Jul for one and Aug for the other).
+  - Dim_Date slicers are ignored by Anchor measures (REMOVEFILTERS). Remove the baseline Day slicer (Dim_Date) from the BU pages, or the non-Anchor visuals will follow it and the Anchor visuals will not.
+  - Base measures are unchanged.
 - Example: with Aug 2026 selected, the bars run Sep 2025 to Aug 2026 and Aug is the 12th, darker bar.

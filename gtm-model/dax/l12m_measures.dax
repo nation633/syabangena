@@ -1,7 +1,7 @@
 // =============================================================================
 // GTM - L12M (rolling last 12 months) on a 'Month Anchor' table. BU page.
 // Reworked 2026-11-02 (user request). Replaces the old 'L12M Axis' approach
-// (l12m_axis.tmdl is SUPERSEDED). Measures belong to table MPO, folder
+// (l12m_axis.tmdl is SUPERSEDED). Measures belong to table _mymeasures (home table), folder
 // "10. L12M". Counts only. Untested in Power BI.
 //
 // TABLES (both disconnected: NO relationships)
@@ -24,8 +24,8 @@ Month Anchor =
 VAR _Months =
     DISTINCT (
         SELECTCOLUMNS (
-            DimDate,
-            "Month Start", DATE ( YEAR ( DimDate[ACTUAL_DATE] ), MONTH ( DimDate[ACTUAL_DATE] ), 1 )
+            Dim_Date,
+            "Month Start", DATE ( YEAR ( Dim_Date[ACTUAL_DATE] ), MONTH ( Dim_Date[ACTUAL_DATE] ), 1 )
         )
     )
 VAR _TodayIdx = YEAR ( TODAY () ) * 12 + MONTH ( TODAY () )
@@ -48,8 +48,8 @@ L12M Axis =
 VAR _Months =
     DISTINCT (
         SELECTCOLUMNS (
-            DimDate,
-            "Month Start", DATE ( YEAR ( DimDate[ACTUAL_DATE] ), MONTH ( DimDate[ACTUAL_DATE] ), 1 )
+            Dim_Date,
+            "Month Start", DATE ( YEAR ( Dim_Date[ACTUAL_DATE] ), MONTH ( Dim_Date[ACTUAL_DATE] ), 1 )
         )
     )
 VAR _FirstYear = MINX ( _Months, YEAR ( [Month Start] ) )
@@ -110,7 +110,7 @@ table 'Month Anchor'
 	partition 'Month Anchor' = calculated
 		mode: import
 		source =
-				VAR _Months = DISTINCT ( SELECTCOLUMNS ( DimDate, "Month Start", DATE ( YEAR ( DimDate[ACTUAL_DATE] ), MONTH ( DimDate[ACTUAL_DATE] ), 1 ) ) )
+				VAR _Months = DISTINCT ( SELECTCOLUMNS ( Dim_Date, "Month Start", DATE ( YEAR ( Dim_Date[ACTUAL_DATE] ), MONTH ( Dim_Date[ACTUAL_DATE] ), 1 ) ) )
 				VAR _TodayIdx = YEAR ( TODAY () ) * 12 + MONTH ( TODAY () )
 				RETURN
 				    ADDCOLUMNS ( _Months,
@@ -146,7 +146,7 @@ table 'L12M Axis'
 	partition 'L12M Axis' = calculated
 		mode: import
 		source =
-				VAR _Months = DISTINCT ( SELECTCOLUMNS ( DimDate, "Month Start", DATE ( YEAR ( DimDate[ACTUAL_DATE] ), MONTH ( DimDate[ACTUAL_DATE] ), 1 ) ) )
+				VAR _Months = DISTINCT ( SELECTCOLUMNS ( Dim_Date, "Month Start", DATE ( YEAR ( Dim_Date[ACTUAL_DATE] ), MONTH ( Dim_Date[ACTUAL_DATE] ), 1 ) ) )
 				VAR _FirstYear = MINX ( _Months, YEAR ( [Month Start] ) )
 				RETURN
 				    ADDCOLUMNS ( _Months,
@@ -154,12 +154,12 @@ table 'L12M Axis'
 				        "Axis Label", FORMAT ( [Month Start], "mmm" ) & REPT ( UNICHAR ( 8203 ), YEAR ( [Month Start] ) - _FirstYear ) )
 */
 
-// ---- Measures (TMDL, table MPO) ---------------------------------------------
-table MPO
+// ---- Measures (TMDL, table _mymeasures) ---------------------------------------------
+table _mymeasures
 
 	/// Start of the latest month with planned activities (ignores all date and anchor filters).
 	measure 'L12M Latest Data Month' =
-			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( Dim_Date ) )
 			RETURN
 			    IF ( NOT ISBLANK ( _Through ), DATE ( YEAR ( _Through ), MONTH ( _Through ), 1 ) )
 		formatString: mmm yyyy
@@ -221,8 +221,8 @@ table MPO
 			        [L12M Visible Flag] = 1,
 			        CALCULATE (
 			            [Planned Activities],
-			            REMOVEFILTERS ( DimDate ),
-			            DATESBETWEEN ( DimDate[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) )
+			            REMOVEFILTERS ( Dim_Date ),
+			            DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) )
 			        )
 			    )
 		formatString: #,0
@@ -236,9 +236,9 @@ table MPO
 			        [L12M Visible Flag] = 1,
 			        CALCULATE (
 			            [Executed Activities],
-			            REMOVEFILTERS ( DimDate ),
-			            DATESBETWEEN ( DimDate[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) ),
-			            USERELATIONSHIP ( DimDate[DATE_KEY], MPO[ExecutedDateKey] )
+			            REMOVEFILTERS ( Dim_Date ),
+			            DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) ),
+			            USERELATIONSHIP ( Dim_Date[DATE_KEY], MPO[ExecutedDateKey] )
 			        )
 			    )
 		formatString: #,0
@@ -253,8 +253,8 @@ table MPO
 			        [L12M Visible Flag] = 1,
 			        CALCULATE (
 			            [Activities With Sales],
-			            REMOVEFILTERS ( DimDate ),
-			            DATESBETWEEN ( DimDate[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) )
+			            REMOVEFILTERS ( Dim_Date ),
+			            DATESBETWEEN ( Dim_Date[ACTUAL_DATE], _Axis, EOMONTH ( _Axis, 0 ) )
 			        )
 			    )
 		formatString: #,0
@@ -281,82 +281,295 @@ table MPO
 			IF ( [L12M Is Selected Month] = 1, "#4A5A6E", "#A9B4C2" )
 		displayFolder: 10. L12M
 
-	// ---- Anchor wrappers: KPIs on the BU page follow the 'Month Anchor' slicers.
-	// Selected anchor months (or the latest data month when nothing is selected) are
-	// mapped onto DimDate[YEAR] + DimDate[MONTH] with TREATAS. Base measures unchanged.
+	// ---- Anchor KPIs: ONE pattern for every Anchor measure (refactored 2026-11-02).
+	// Helper = [L12M Selected Month] (the chart's last bar): Year+Month -> that month;
+	// Year only -> latest data month in that year; nothing selected -> latest data month.
+	// Each wrapper: CALCULATE ( [Base], REMOVEFILTERS ( Dim_Date ),
+	//     TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) )
+	// REMOVEFILTERS(Dim_Date) means any Dim_Date slicer on the page (e.g. the baseline Day
+	// slicer) is IGNORED by Anchor measures - remove it from the BU pages.
+	// Ratios are DIVIDE of Anchor measures. Base measures are unchanged.
 
-	/// Planned Activities for the anchor selection; planned date.
+	/// QA helper: YYYYMM of the month all Anchor measures show (= L12M Selected Month).
+	measure 'Anchor Month Key' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( NOT ISBLANK ( _Sel ), YEAR ( _Sel ) * 100 + MONTH ( _Sel ) )
+		formatString: 0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Planned Activities for the anchor month; planned date.
 	measure 'Anchor Planned' =
-			VAR _Latest = [L12M Latest Data Month]
-			VAR _YM =
-			    IF (
-			        ISFILTERED ( 'Month Anchor' ),
-			        SELECTCOLUMNS ( 'Month Anchor', "Y", 'Month Anchor'[Year], "M", 'Month Anchor'[Month Number] ),
-			        { ( YEAR ( _Latest ), MONTH ( _Latest ) ) }
-			    )
+			VAR _Sel = [L12M Selected Month]
 			RETURN
-			    CALCULATE ( [Planned Activities], TREATAS ( _YM, DimDate[YEAR], DimDate[MONTH] ) )
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Planned Activities],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
 		formatString: #,0
 		displayFolder: 10. L12M\Anchor KPIs
 
-	/// Executed Activities for the anchor selection; planned date.
+	/// Executed Activities for the anchor month; PLANNED date (activities planned in the month that were executed).
 	measure 'Anchor Executed' =
-			VAR _Latest = [L12M Latest Data Month]
-			VAR _YM =
-			    IF (
-			        ISFILTERED ( 'Month Anchor' ),
-			        SELECTCOLUMNS ( 'Month Anchor', "Y", 'Month Anchor'[Year], "M", 'Month Anchor'[Month Number] ),
-			        { ( YEAR ( _Latest ), MONTH ( _Latest ) ) }
-			    )
+			VAR _Sel = [L12M Selected Month]
 			RETURN
-			    CALCULATE ( [Executed Activities], TREATAS ( _YM, DimDate[YEAR], DimDate[MONTH] ) )
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Executed Activities],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
 		formatString: #,0
 		displayFolder: 10. L12M\Anchor KPIs
 
-	/// Executed (Exec Date) for the anchor selection; executed date (USERELATIONSHIP inside the base measure).
+	/// Executed activities by the month they were EXECUTED (USERELATIONSHIP on ExecutedDateKey inside the base measure). Can differ from Anchor Executed.
 	measure 'Anchor Executed (Exec Date)' =
-			VAR _Latest = [L12M Latest Data Month]
-			VAR _YM =
-			    IF (
-			        ISFILTERED ( 'Month Anchor' ),
-			        SELECTCOLUMNS ( 'Month Anchor', "Y", 'Month Anchor'[Year], "M", 'Month Anchor'[Month Number] ),
-			        { ( YEAR ( _Latest ), MONTH ( _Latest ) ) }
-			    )
+			VAR _Sel = [L12M Selected Month]
 			RETURN
-			    CALCULATE ( [Executed (Exec Date)], TREATAS ( _YM, DimDate[YEAR], DimDate[MONTH] ) )
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Executed (Exec Date)],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
 		formatString: #,0
 		displayFolder: 10. L12M\Anchor KPIs
 
-	/// PROVISIONAL. Activities With Sales for the anchor selection; planned date.
+	/// PROVISIONAL. Activities With Sales for the anchor month; planned date.
 	measure 'Anchor Activities With Sales' =
-			VAR _Latest = [L12M Latest Data Month]
-			VAR _YM =
-			    IF (
-			        ISFILTERED ( 'Month Anchor' ),
-			        SELECTCOLUMNS ( 'Month Anchor', "Y", 'Month Anchor'[Year], "M", 'Month Anchor'[Month Number] ),
-			        { ( YEAR ( _Latest ), MONTH ( _Latest ) ) }
-			    )
+			// PROVISIONAL (Activities With Sales)
+			VAR _Sel = [L12M Selected Month]
 			RETURN
-			    CALCULATE ( [Activities With Sales], TREATAS ( _YM, DimDate[YEAR], DimDate[MONTH] ) )
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Activities With Sales],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
 		formatString: #,0
 		displayFolder: 10. L12M\Anchor KPIs
 
-	/// PROVISIONAL. Sales Count for the anchor selection; planned date.
+	/// PROVISIONAL. Sales Count for the anchor month; planned date.
 	measure 'Anchor Sales Count' =
-			VAR _Latest = [L12M Latest Data Month]
-			VAR _YM =
-			    IF (
-			        ISFILTERED ( 'Month Anchor' ),
-			        SELECTCOLUMNS ( 'Month Anchor', "Y", 'Month Anchor'[Year], "M", 'Month Anchor'[Month Number] ),
-			        { ( YEAR ( _Latest ), MONTH ( _Latest ) ) }
-			    )
+			// PROVISIONAL (Sales Count)
+			VAR _Sel = [L12M Selected Month]
 			RETURN
-			    CALCULATE ( [Sales Count], TREATAS ( _YM, DimDate[YEAR], DimDate[MONTH] ) )
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Sales Count],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
 		formatString: #,0
 		displayFolder: 10. L12M\Anchor KPIs
 
-	/// Executed / Planned for the anchor selection.
+	/// PROVISIONAL. Executed No Sale for the anchor month; planned date.
+	measure 'Anchor Executed No Sale' =
+			// PROVISIONAL (Executed No Sale)
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Executed No Sale],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		formatString: #,0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Executed Activities, same month last year; planned date. Blank for 2025 (no 2024 data).
+	measure 'Anchor Executed PY' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Executed PY],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		formatString: #,0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Execution Rate %, same month last year. Blank for 2025 (no 2024 data).
+	measure 'Anchor Execution Rate PY' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Execution Rate PY],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Executed minus previous month for the anchor month; planned date.
+	measure 'Anchor Executed MoM Diff' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Executed MoM Diff],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		formatString: +#,0;-#,0;0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Planned - Executed for the anchor month; planned date.
+	measure 'Anchor Not Executed' =
+			VAR _P = [Anchor Planned]
+			RETURN
+			    IF ( NOT ISBLANK ( _P ), _P - [Anchor Executed] )
+		formatString: #,0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Alias of Anchor Not Executed (target wording).
+	measure 'Anchor Gap to Plan' =
+			[Anchor Not Executed]   -- alias, same as Gap to Plan
+		formatString: #,0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Anchor Executed / Anchor Planned (= Execution Rate % for the anchor month).
 	measure 'Anchor Execution %' =
 			DIVIDE ( [Anchor Executed], [Anchor Planned] )
-		formatString: 0.0%
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Anchor Gap to Plan / Anchor Planned.
+	measure 'Anchor Gap to Plan %' =
+			DIVIDE ( [Anchor Gap to Plan], [Anchor Planned] )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// PROVISIONAL. Anchor Activities With Sales / Anchor Executed (same definition as Conversion %).
+	measure 'Anchor Conversion %' =
+			// PROVISIONAL (Conversion %)
+			DIVIDE ( [Anchor Activities With Sales], [Anchor Executed] )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Anchor Execution % minus same month last year, in pp.
+	measure 'Anchor Execution Rate YoY pp' =
+			VAR _C = [Anchor Execution %]
+			VAR _P = [Anchor Execution Rate PY]
+			RETURN
+			    IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Anchor Executed minus same month last year (count).
+	measure 'Anchor Executed CY vs PY Diff' =
+			VAR _C = [Anchor Executed]
+			VAR _P = [Anchor Executed PY]
+			RETURN
+			    IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// SVG Bullet Executed vs Planned for the anchor month (same image size as the base).
+	measure 'Anchor SVG Bullet Executed vs Planned' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [SVG Bullet Executed vs Planned],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		dataCategory: ImageUrl
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// SVG Floating Bar Gap to Plan for the anchor month (same image size as the base).
+	measure 'Anchor SVG Floating Bar Gap to Plan' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [SVG Floating Bar Gap to Plan],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		dataCategory: ImageUrl
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// SVG Dumbbell CY vs PY for the anchor month (same image size as the base).
+	measure 'Anchor SVG Dumbbell CY vs PY' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [SVG Dumbbell CY vs PY],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		dataCategory: ImageUrl
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// SVG Status Pill for the anchor month (same image size as the base).
+	measure 'Anchor SVG Status Pill' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [SVG Status Pill],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		dataCategory: ImageUrl
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// SVG MoM Change Bar for the anchor month (same image size as the base).
+	measure 'Anchor SVG MoM Change Bar' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [SVG MoM Change Bar],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		dataCategory: ImageUrl
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Title - Business Unit for the anchor month (Sel Period reads the anchor month).
+	measure 'Anchor Title - Business Unit' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Title - Business Unit],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Sparkline of the 12 months ending at the anchor month (same window as the L12M chart); planned date. Image 120x20.
+	measure 'Anchor SVG Sparkline Executed' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [SVG Sparkline Executed],
+			            REMOVEFILTERS ( Dim_Date ),
+			            DATESBETWEEN ( Dim_Date[ACTUAL_DATE], EDATE ( _Sel, -11 ), EOMONTH ( _Sel, 0 ) ) ) )
+		dataCategory: ImageUrl
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// Visual filter for month-axis charts on Dim_Date (e.g. BU small multiples): 1 when the Dim_Date month is in the 12 months ending at the anchor month, else 0. Use with no Dim_Date slicer on the page.
+	measure 'Anchor L12M Window Flag' =
+			// Axis month comes from Dim_Date (row context of the visual axis, e.g. YEAR_MONTH_KEY).
+			// Anchor month comes from [L12M Selected Month] = disconnected 'Month Anchor' + REMOVEFILTERS ( Dim_Date ),
+			// so the axis filter cannot move the anchor.
+			VAR _Sel = [L12M Selected Month]
+			VAR _AxisFirst = MIN ( Dim_Date[ACTUAL_DATE] )
+			VAR _AxisLast  = MAX ( Dim_Date[ACTUAL_DATE] )
+			VAR _AxisMonth = DATE ( YEAR ( _AxisFirst ), MONTH ( _AxisFirst ), 1 )
+			VAR _OneMonth  = NOT ISBLANK ( _AxisFirst ) && EOMONTH ( _AxisFirst, 0 ) = EOMONTH ( _AxisLast, 0 )
+			RETURN
+			    IF ( NOT ISBLANK ( _Sel ) && _OneMonth && _AxisMonth >= EDATE ( _Sel, -11 ) && _AxisMonth <= _Sel, 1, 0 )
+		formatString: 0
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// N1 for the anchor month: latest planned date in the anchor month (banner on BU pages).
+	measure 'Anchor Data Through Date' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Data Through Date],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		formatString: d mmm yyyy
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// N2 for the anchor month: TRUE when the anchor month is the running (partial) month.
+	measure 'Anchor Is Partial Month' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Is Partial Month],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		displayFolder: 10. L12M\Anchor KPIs
+
+	/// N8 for the anchor month: "Month to date, through d mmm" when the anchor month is partial, else blank.
+	measure 'Anchor Partial Month Label' =
+			VAR _Sel = [L12M Selected Month]
+			RETURN
+			    IF ( ISBLANK ( _Sel ), BLANK (),
+			        CALCULATE ( [Partial Month Label],
+			            REMOVEFILTERS ( Dim_Date ),
+			            TREATAS ( { ( YEAR ( _Sel ), MONTH ( _Sel ) ) }, Dim_Date[YEAR], Dim_Date[MONTH] ) ) )
 		displayFolder: 10. L12M\Anchor KPIs

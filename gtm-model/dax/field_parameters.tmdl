@@ -5,7 +5,7 @@
 // UI fallback: Modeling > New parameter > Fields; name 'Metric' (add the 6 measures in this order)
 // and 'Level' (add the 6 MPO columns); untick 'Add slicer' if you place your own. Rename display
 // labels in the generated DAX to match the first item of each tuple below.
-// These are small Import calculated tables; the model is already composite (DimDate/Product Dual).
+// These are small Import calculated tables; the model is already composite (Dim_Date/Product Dual).
 
 table Metric
 	lineageTag: fp-metric
@@ -38,12 +38,12 @@ table Metric
 		mode: import
 		source =
 				{
-				    ( "Planned Activities", NAMEOF ( 'MPO'[Planned Activities] ), 0 ),
-				    ( "Executed Activities", NAMEOF ( 'MPO'[Executed Activities] ), 1 ),
-				    ( "Not Executed", NAMEOF ( 'MPO'[Not Executed] ), 2 ),
-				    ( "Execution Rate %", NAMEOF ( 'MPO'[Execution Rate %] ), 3 ),
-				    ( "Conversion %", NAMEOF ( 'MPO'[Conversion %] ), 4 ),
-				    ( "Executed No Sale", NAMEOF ( 'MPO'[Executed No Sale] ), 5 )
+				    ( "Planned Activities", NAMEOF ( '_mymeasures'[Planned Activities] ), 0 ),
+				    ( "Executed Activities", NAMEOF ( '_mymeasures'[Executed Activities] ), 1 ),
+				    ( "Not Executed", NAMEOF ( '_mymeasures'[Not Executed] ), 2 ),
+				    ( "Execution Rate %", NAMEOF ( '_mymeasures'[Execution Rate %] ), 3 ),
+				    ( "Conversion %", NAMEOF ( '_mymeasures'[Conversion %] ), 4 ),
+				    ( "Executed No Sale", NAMEOF ( '_mymeasures'[Executed No Sale] ), 5 )
 				}
 
 	annotation PBI_Id = fpMetric
@@ -88,3 +88,46 @@ table Level
 				}
 
 	annotation PBI_Id = fpLevel
+
+// Anchor Metric: same 6 labels, Anchor measures (dax/l12m_measures.dax). For the BU decomposition tree;
+// follows the 'Month Anchor' slicers. Conversion % / Executed No Sale PROVISIONAL.
+table 'Anchor Metric'
+	lineageTag: fp-anchor-metric
+
+	column 'Anchor Metric'
+		dataType: string
+		sourceColumn: [Value1]
+		sortByColumn: 'Anchor Metric Order'
+		relatedColumnDetails
+			groupByColumn: 'Anchor Metric Fields'
+
+	column 'Anchor Metric Fields'
+		dataType: string
+		isHidden
+		sourceColumn: [Value2]
+		sortByColumn: 'Anchor Metric Order'
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 3,
+				  "kind": 2
+				}
+
+	column 'Anchor Metric Order'
+		dataType: int64
+		isHidden
+		formatString: 0
+		sourceColumn: [Value3]
+
+	partition 'Anchor Metric' = calculated
+		mode: import
+		source =
+				{
+				    ( "Planned Activities", NAMEOF ( '_mymeasures'[Anchor Planned] ), 0 ),
+				    ( "Executed Activities", NAMEOF ( '_mymeasures'[Anchor Executed] ), 1 ),
+				    ( "Not Executed", NAMEOF ( '_mymeasures'[Anchor Not Executed] ), 2 ),
+				    ( "Execution Rate %", NAMEOF ( '_mymeasures'[Anchor Execution %] ), 3 ),
+				    ( "Conversion %", NAMEOF ( '_mymeasures'[Anchor Conversion %] ), 4 ),
+				    ( "Executed No Sale", NAMEOF ( '_mymeasures'[Anchor Executed No Sale] ), 5 )
+				}
+
+	annotation PBI_Id = fpAnchorMetric

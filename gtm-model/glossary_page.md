@@ -61,4 +61,7 @@ Paste each block into a text box on a "Glossary" report page. Formatting: Arial 
 - If you pick nothing, the page uses the latest month with data.
 - The axis shows month names only. Hover over a bar to see the year.
 - Grey = Planned and slate = Activities with a sale (provisional), both by planned date. Green = Executed, by the date it was executed. The selected month's bars are a darker shade.
-- The KPI cards on this page follow the same Year and Month selection.
+- Every card, table, matrix and tree on this page shows the same single month as the last bar of the chart.
+- If you pick only a Year, the page shows the latest month with data in that year. If you pick nothing, it shows the latest month with data.
+- "Executed" counts executed activities in the month they were planned. "Executed (exec date)" counts them in the month they were actually executed, so the two numbers can differ.
+- This page has no Day slicer: a day filter would not line up with the selected month.
