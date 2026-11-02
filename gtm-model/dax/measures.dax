@@ -1,0 +1,313 @@
+// GTM - DAX measures (TMDL). Paste into TMDL view under `table MPO`,
+// or copy each expression into New measure. Columns verified against powerbi_queries/MPO.sql:
+// key = MPO[ActivityId]; executed flag = MPO[IsExecuted] (int 1/0, = ExecutedAt IS NOT NULL).
+// Time intelligence uses DimDate[ACTUAL_DATE] (DimDate Dual, marked as date table).
+
+table MPO
+
+	/// Approved activities bankers planned; planned date.
+	measure 'Planned Activities' =
+			DISTINCTCOUNT ( MPO[ActivityId] )
+		formatString: #,0
+		displayFolder: 1. Volume
+
+	/// Planned activities that were carried out (have an executed date); planned date.
+	measure 'Executed Activities' =
+			CALCULATE (
+			    DISTINCTCOUNT ( MPO[ActivityId] ),
+			    KEEPFILTERS ( MPO[IsExecuted] = 1 )
+			)
+		formatString: #,0
+		displayFolder: 1. Volume
+
+	/// Executed Activities placed on the day they were executed; executed date.
+	measure 'Executed (Exec Date)' =
+			CALCULATE (
+			    [Executed Activities],
+			    USERELATIONSHIP ( DimDate[DATE_KEY], MPO[ExecutedDateKey] )
+			)
+		formatString: #,0
+		displayFolder: 1. Volume
+
+	/// Planned activities with no executed date yet; planned date.
+	measure 'Not Executed' =
+			VAR _Planned  = [Planned Activities]
+			VAR _Executed = [Executed Activities]
+			RETURN
+			    IF ( NOT ISBLANK ( _Planned ), _Planned - _Executed )
+		formatString: #,0
+		displayFolder: 1. Volume
+
+	/// Executed Activities / Planned Activities; planned date.
+	measure 'Execution Rate %' =
+			DIVIDE ( [Executed Activities], [Planned Activities] )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 1. Volume
+
+	/// Planned Activities for the same period last year.
+	measure 'Planned PY' =
+			CALCULATE ( [Planned Activities], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Planned
+
+	/// Planned Activities for the previous month.
+	measure 'Planned PM' =
+			CALCULATE ( [Planned Activities], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Planned
+
+	/// (Selected period - last year) / last year.
+	measure 'Planned YoY %' =
+			VAR _Cur = [Planned Activities]
+			VAR _PY  = [Planned PY]
+			RETURN
+			    DIVIDE ( _Cur - _PY, _PY )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Planned
+
+	/// (This month - previous month) / previous month.
+	measure 'Planned MoM %' =
+			VAR _Cur = [Planned Activities]
+			VAR _PM  = [Planned PM]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Planned
+
+	/// Executed Activities for the same period last year.
+	measure 'Executed PY' =
+			CALCULATE ( [Executed Activities], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Executed
+
+	/// Executed Activities for the previous month.
+	measure 'Executed PM' =
+			CALCULATE ( [Executed Activities], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Executed
+
+	/// (Selected period - last year) / last year.
+	measure 'Executed YoY %' =
+			VAR _Cur = [Executed Activities]
+			VAR _PY  = [Executed PY]
+			RETURN
+			    DIVIDE ( _Cur - _PY, _PY )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Executed
+
+	/// (This month - previous month) / previous month.
+	measure 'Executed MoM %' =
+			VAR _Cur = [Executed Activities]
+			VAR _PM  = [Executed PM]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Executed
+
+	/// Executed (Exec Date) for the same period last year.
+	measure 'Executed (Exec Date) PY' =
+			CALCULATE ( [Executed (Exec Date)], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Executed (Exec Date)
+
+	/// Executed (Exec Date) for the previous month.
+	measure 'Executed (Exec Date) PM' =
+			CALCULATE ( [Executed (Exec Date)], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Executed (Exec Date)
+
+	/// (Selected period - last year) / last year.
+	measure 'Executed (Exec Date) YoY %' =
+			VAR _Cur = [Executed (Exec Date)]
+			VAR _PY  = [Executed (Exec Date) PY]
+			RETURN
+			    DIVIDE ( _Cur - _PY, _PY )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Executed (Exec Date)
+
+	/// (This month - previous month) / previous month.
+	measure 'Executed (Exec Date) MoM %' =
+			VAR _Cur = [Executed (Exec Date)]
+			VAR _PM  = [Executed (Exec Date) PM]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Executed (Exec Date)
+
+	/// Not Executed for the same period last year.
+	measure 'Not Executed PY' =
+			CALCULATE ( [Not Executed], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Not Executed
+
+	/// Not Executed for the previous month.
+	measure 'Not Executed PM' =
+			CALCULATE ( [Not Executed], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 2. Comparisons\Not Executed
+
+	/// (Selected period - last year) / last year.
+	measure 'Not Executed YoY %' =
+			VAR _Cur = [Not Executed]
+			VAR _PY  = [Not Executed PY]
+			RETURN
+			    DIVIDE ( _Cur - _PY, _PY )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Not Executed
+
+	/// (This month - previous month) / previous month.
+	measure 'Not Executed MoM %' =
+			VAR _Cur = [Not Executed]
+			VAR _PM  = [Not Executed PM]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Not Executed
+
+	/// Execution Rate % same period last year.
+	measure 'Execution Rate PY' =
+			CALCULATE ( [Execution Rate %], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Execution Rate
+
+	/// Execution Rate % previous month.
+	measure 'Execution Rate PM' =
+			CALCULATE ( [Execution Rate %], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Execution Rate
+
+	/// Change in percentage points vs last year (a % change of a % is misleading).
+	measure 'Execution Rate YoY pp' =
+			VAR _Cur = [Execution Rate %]
+			VAR _PY  = [Execution Rate PY]
+			RETURN
+			    IF ( NOT ISBLANK ( _Cur ) && NOT ISBLANK ( _PY ), _Cur - _PY )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Execution Rate
+
+	/// Change in percentage points vs previous month.
+	measure 'Execution Rate MoM pp' =
+			VAR _Cur = [Execution Rate %]
+			VAR _PM  = [Execution Rate PM]
+			RETURN
+			    IF ( NOT ISBLANK ( _Cur ) && NOT ISBLANK ( _PM ), _Cur - _PM )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 2. Comparisons\Execution Rate
+
+	/// Average daily Planned Activities over the 7 calendar days ending on the current day.
+	measure 'Planned 7D Avg' =
+			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Window =
+			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _LastDay ),
+			        DIVIDE ( CALCULATE ( [Planned Activities], _Window ), COUNTROWS ( _Window ) )
+			    )
+		formatString: #,0.0
+		displayFolder: 3. Rolling
+
+	/// Average daily Executed Activities over the 7 calendar days ending on the current day.
+	measure 'Executed 7D Avg' =
+			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Window =
+			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _LastDay ),
+			        DIVIDE ( CALCULATE ( [Executed Activities], _Window ), COUNTROWS ( _Window ) )
+			    )
+		formatString: #,0.0
+		displayFolder: 3. Rolling
+
+	/// Average daily Executed (Exec Date) over the 7 calendar days ending on the current day.
+	measure 'Executed (Exec Date) 7D Avg' =
+			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Window =
+			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _LastDay ),
+			        DIVIDE ( CALCULATE ( [Executed (Exec Date)], _Window ), COUNTROWS ( _Window ) )
+			    )
+		formatString: #,0.0
+		displayFolder: 3. Rolling
+
+	/// Average daily Not Executed over the 7 calendar days ending on the current day.
+	measure 'Not Executed 7D Avg' =
+			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Window =
+			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _LastDay ),
+			        DIVIDE ( CALCULATE ( [Not Executed], _Window ), COUNTROWS ( _Window ) )
+			    )
+		formatString: #,0.0
+		displayFolder: 3. Rolling
+
+	/// PROVISIONAL. Sum of the 10 product columns (TotalSaleCount); planned date; includes not-executed rows.
+	measure 'Sales Count' =
+			// PROVISIONAL: all 10 columns via TotalSaleCount; ignores Product slicer
+			SUM ( MPO[TotalSaleCount] )
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Executed activities with at least one sale; planned date.
+	measure 'Activities With Sales' =
+			// PROVISIONAL: executed activities with TotalSaleCount > 0
+			CALCULATE (
+			    DISTINCTCOUNT ( MPO[ActivityId] ),
+			    KEEPFILTERS ( MPO[IsExecuted] = 1 ),
+			    KEEPFILTERS ( MPO[HasSale] = 1 )
+			)
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Activities With Sales / Executed Activities; planned date.
+	measure 'Conversion %' =
+			// PROVISIONAL
+			DIVIDE ( [Activities With Sales], [Executed Activities] )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL.
+	measure 'Sales Count PY' =
+			CALCULATE ( [Sales Count], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL.
+	measure 'Sales Count PM' =
+			CALCULATE ( [Sales Count], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+// ---------------------------------------------------------------------------
+// STUB - Product-level sales via disconnected Product slicer. NOT ACTIVE.
+// Waits on: (a) mapping answers for OdApp (OD/ODA-A/ODA-C/ODLI), CcApp,
+// Investments, FPMCL (open_questions #11); (b) date axis rule - planned vs
+// executed date (#3); (c) whether sales on not-executed activities count (#2).
+// Uncomment inside table MPO when confirmed.
+// ---------------------------------------------------------------------------
+//	measure 'Sales Count (Product)' =
+//			VAR _Cols = DISTINCT ( Product[ProductColumn] )
+//			RETURN
+//			    SUMX (
+//			        _Cols,
+//			        SWITCH (
+//			            Product[ProductColumn],
+//			            "MiGoals",        SUM ( MPO[MiGoals] ),
+//			            "MiGoalsPlus",    SUM ( MPO[MiGoalsPlus] ),
+//			            "MiGoalsPremium", SUM ( MPO[MiGoalsPremium] ),
+//			            "PlIntake",       SUM ( MPO[PlIntake] ),
+//			            "OdApp",          SUM ( MPO[OdApp] ),        -- mapping open
+//			            "CcApp",          SUM ( MPO[CcApp] ),        -- mapping open
+//			            "Investments",    SUM ( MPO[Investments] ),  -- mapping open
+//			            "FPFixed",        SUM ( MPO[FPFixed] ),
+//			            "FPBYO",          SUM ( MPO[FPBYO] ),
+//			            "FPMCL",          SUM ( MPO[FPMCL] )         -- mapping open
+//			        )
+//			    )
+//		formatString: #,0
+//		displayFolder: 4. Sales (PROVISIONAL)
