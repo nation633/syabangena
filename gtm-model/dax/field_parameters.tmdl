@@ -1,0 +1,90 @@
+// Field parameters (TMDL calculated tables). Paste into TMDL view (createOrReplace) or save as
+// definition/tables/Metric.tmdl and Level.tmdl. Names verified against dax/measures.dax and
+// powerbi_queries/MPO.sql (BusinessUnit, Region, MicroMarket, Branch, BankerName, Company).
+// Conversion % and Executed No Sale are PROVISIONAL (sales-based).
+// UI fallback: Modeling > New parameter > Fields; name 'Metric' (add the 6 measures in this order)
+// and 'Level' (add the 6 MPO columns); untick 'Add slicer' if you place your own. Rename display
+// labels in the generated DAX to match the first item of each tuple below.
+// These are small Import calculated tables; the model is already composite (DimDate/Product Dual).
+
+table Metric
+	lineageTag: fp-metric
+
+	column Metric
+		dataType: string
+		sourceColumn: [Value1]
+		sortByColumn: 'Metric Order'
+		relatedColumnDetails
+			groupByColumn: 'Metric Fields'
+
+	column 'Metric Fields'
+		dataType: string
+		isHidden
+		sourceColumn: [Value2]
+		sortByColumn: 'Metric Order'
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 3,
+				  "kind": 2
+				}
+
+	column 'Metric Order'
+		dataType: int64
+		isHidden
+		formatString: 0
+		sourceColumn: [Value3]
+
+	partition Metric = calculated
+		mode: import
+		source =
+				{
+				    ( "Planned Activities", NAMEOF ( 'MPO'[Planned Activities] ), 0 ),
+				    ( "Executed Activities", NAMEOF ( 'MPO'[Executed Activities] ), 1 ),
+				    ( "Not Executed", NAMEOF ( 'MPO'[Not Executed] ), 2 ),
+				    ( "Execution Rate %", NAMEOF ( 'MPO'[Execution Rate %] ), 3 ),
+				    ( "Conversion %", NAMEOF ( 'MPO'[Conversion %] ), 4 ),
+				    ( "Executed No Sale", NAMEOF ( 'MPO'[Executed No Sale] ), 5 )
+				}
+
+	annotation PBI_Id = fpMetric
+
+table Level
+	lineageTag: fp-level
+
+	column Level
+		dataType: string
+		sourceColumn: [Value1]
+		sortByColumn: 'Level Order'
+		relatedColumnDetails
+			groupByColumn: 'Level Fields'
+
+	column 'Level Fields'
+		dataType: string
+		isHidden
+		sourceColumn: [Value2]
+		sortByColumn: 'Level Order'
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 3,
+				  "kind": 2
+				}
+
+	column 'Level Order'
+		dataType: int64
+		isHidden
+		formatString: 0
+		sourceColumn: [Value3]
+
+	partition Level = calculated
+		mode: import
+		source =
+				{
+				    ( "Business Unit", NAMEOF ( 'MPO'[BusinessUnit] ), 0 ),
+				    ( "Region", NAMEOF ( 'MPO'[Region] ), 1 ),
+				    ( "MicroMarket", NAMEOF ( 'MPO'[MicroMarket] ), 2 ),
+				    ( "Branch", NAMEOF ( 'MPO'[Branch] ), 3 ),
+				    ( "Banker", NAMEOF ( 'MPO'[BankerName] ), 4 ),
+				    ( "Company", NAMEOF ( 'MPO'[Company] ), 5 )
+				}
+
+	annotation PBI_Id = fpLevel

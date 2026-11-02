@@ -1,0 +1,43 @@
+// Disconnected month axis for the BU rolling last-12-months chart. NO relationships.
+// Built from DimDate months. Calculated table = Import storage (allowed beside DirectQuery
+// because DimDate is Dual). If calculated tables are blocked in your mode, build the same
+// 3 columns as a Power Query table (Import) from the DimDate query, grouped by month.
+// X axis = 'L12M Axis'[Month Label] (sorted by Month Sort Key); slicer stays on DimDate.
+table 'L12M Axis'
+	lineageTag: l12m-axis
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: d mmm yyyy
+		summarizeBy: none
+		sourceColumn: [Month Start]
+
+	column 'Month Label'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: [Month Label]
+		sortByColumn: 'Month Sort Key'
+
+	column 'Month Sort Key'
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: [Month Sort Key]
+
+	partition 'L12M Axis' = calculated
+		mode: import
+		source =
+				VAR _Months =
+				    DISTINCT (
+				        SELECTCOLUMNS (
+				            DimDate,
+				            "Month Start", DATE ( YEAR ( DimDate[ACTUAL_DATE] ), MONTH ( DimDate[ACTUAL_DATE] ), 1 )
+				        )
+				    )
+				RETURN
+				    ADDCOLUMNS (
+				        _Months,
+				        "Month Label", FORMAT ( [Month Start], "mmm yyyy" ),
+				        "Month Sort Key", YEAR ( [Month Start] ) * 100 + MONTH ( [Month Start] )
+				    )

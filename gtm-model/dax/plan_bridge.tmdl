@@ -1,0 +1,21 @@
+// Disconnected table for the native plan Waterfall (no relationships, Import, 2 static rows).
+// Category = 'Plan Bridge'[Step] (sorted by Order), Y = [Plan Bridge Value]; Total on, renamed "Executed".
+table 'Plan Bridge'
+	lineageTag: plan-bridge
+
+	column Step
+		dataType: string
+		summarizeBy: none
+		sourceColumn: [Value1]
+		sortByColumn: Order
+
+	column Order
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: [Value2]
+
+	partition 'Plan Bridge' = calculated
+		mode: import
+		source = { ( "Planned", 1 ), ( "Not Executed", 2 ) }

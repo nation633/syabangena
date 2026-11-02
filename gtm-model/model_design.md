@@ -42,84 +42,23 @@ MPO stores sales in 10 wide columns, so there is no key Product could relate to.
    - DimDate[DATE_KEY] 1:* MPO[DateKey], **active**.
    - DimDate[DATE_KEY] 1:* MPO[ExecutedDateKey], **inactive**.
    - Product has no relationships.
-4. **Date table:** Mark DimDate as the date table on ACTUAL_DATE. Sort MONTH_NAME by MONTH.
+4. **Date table:** Mark DimDate as the date table on ACTUAL_DATE. Sort by column: MONTH_NAME and MONTH_SHORT_NAME by MONTH; DAY_NAME and DAY_SHORT_NAME by DAY_IN_WEEK; MONTH_SORT_LABEL needs none. Optionally sort YEAR_MONTH_KEY-based labels by YEAR_MONTH_KEY.
 5. **Slicers:**
    - Year/Month/Day come from DimDate.
    - BU, Region, MicroMarket, Branch, BankerName, Company and SourceOfOpportunity come straight from MPO columns.
    - Product Group / Product come from Product[ProductGroup] / Product[ProductLabel] or REPORTINGPRODUCTNAME.
-   - Hierarchy on MPO: BusinessUnit > Region > MicroMarket > Branch > BankerName.
-6. **Hide** ActivityId, DateKey, ExecutedDateKey, IsExecuted, HasSale, the 10 product columns, TotalSaleCount and Product[ProductColumn]. Use the measures instead. Turn on the slicer Apply button.
+   - Hierarchy on MPO (confirmed, all columns exist in MPO.sql, blanks shown as 'Unknown'): BusinessUnit > Region (source Province) > MicroMarket > Branch > BankerName.
+6. **Hide** ActivityId, DateKey, ExecutedDateKey, IsExecuted, HasSale, the 10 product columns, TotalSaleCount and Product[ProductColumn]. For the full, current measure list, see `dax/measures.dax`; this doc doesn't keep a copy. Use the measures instead. Turn on the slicer Apply button.
 
 ## Measures
-```DAX
-Planned Activities = COUNTROWS ( MPO )
+**Measures are owned by the DAX Analyst. The source of truth is `dax/measures.dax`** (also see `dax/measures_guide.md`). This doc no longer repeats the DAX. Model rules the measures rely on: the key is MPO[ActivityId]; executed means MPO[Executed] = "Yes"; the executed-date axis comes from USERELATIONSHIP(DimDate[DATE_KEY], MPO[ExecutedDateKey]); Product is disconnected and is read through Product[ProductColumn]. For the full, current measure list, see `dax/measures.dax`; this doc doesn't keep a copy.
 
-Executed Activities =
-CALCULATE ( COUNTROWS ( MPO ), KEEPFILTERS ( MPO[Executed] = "Yes" ) )   -- by planned date; full measures live in dax/measures.dax (DAX Analyst)
-
-Executed (Exec Date) =
-CALCULATE ( [Executed Activities], USERELATIONSHIP ( DimDate[DATE_KEY], MPO[ExecutedDateKey] ) )
-
-Not Executed = [Planned Activities] - [Executed Activities]
-
--- Sales Count: sums the MPO columns that match the selected products (all 10 when nothing is selected)
-Sales Count =
-SUMX (
-    DISTINCT ( Product[ProductColumn] ),
-    SWITCH (
-        Product[ProductColumn],
-        "MiGoals",        SUM ( MPO[MiGoals] ),
-        "MiGoalsPlus",    SUM ( MPO[MiGoalsPlus] ),
-        "MiGoalsPremium", SUM ( MPO[MiGoalsPremium] ),
-        "PlIntake",       SUM ( MPO[PlIntake] ),
-        "OdApp",          SUM ( MPO[OdApp] ),
-        "CcApp",          SUM ( MPO[CcApp] ),
-        "Investments",    SUM ( MPO[Investments] ),
-        "FPFixed",        SUM ( MPO[FPFixed] ),
-        "FPBYO",          SUM ( MPO[FPBYO] ),
-        "FPMCL",          SUM ( MPO[FPMCL] )
-    )
-)
-
--- Activities with at least one sale in the selected products
-Activities With Sales =
-IF (
-    NOT ISFILTERED ( Product ),
-    SUM ( MPO[HasSale] ),
-    VAR Cols = DISTINCT ( Product[ProductColumn] )
-    RETURN
-        COUNTROWS (
-            FILTER (
-                MPO,
-                ( "MiGoals"        IN Cols && MPO[MiGoals] > 0 )
-                || ( "MiGoalsPlus"    IN Cols && MPO[MiGoalsPlus] > 0 )
-                || ( "MiGoalsPremium" IN Cols && MPO[MiGoalsPremium] > 0 )
-                || ( "PlIntake"       IN Cols && MPO[PlIntake] > 0 )
-                || ( "OdApp"          IN Cols && MPO[OdApp] > 0 )
-                || ( "CcApp"          IN Cols && MPO[CcApp] > 0 )
-                || ( "Investments"    IN Cols && MPO[Investments] > 0 )
-                || ( "FPFixed"        IN Cols && MPO[FPFixed] > 0 )
-                || ( "FPBYO"          IN Cols && MPO[FPBYO] > 0 )
-                || ( "FPMCL"          IN Cols && MPO[FPMCL] > 0 )
-            )
-        )
-)
-
--- Previous year / MoM pattern (apply to any measure)
-Planned PY      = CALCULATE ( [Planned Activities], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
-Planned PM      = CALCULATE ( [Planned Activities], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
-Planned MoM %   = DIVIDE ( [Planned Activities] - [Planned PM], [Planned PM] )
-Sales Count PY  = CALCULATE ( [Sales Count], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
-Sales Count PM  = CALCULATE ( [Sales Count], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
-Executed PY (Exec Date) =
-CALCULATE ( [Executed (Exec Date)], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
-```
 - **Sales on the executed date:** wrap the measure in `CALCULATE(..., USERELATIONSHIP(DimDate[DATE_KEY], MPO[ExecutedDateKey]))`.
 - **Fewer measures:** a calculation group (Current/PY/PM/MoM %) avoids repeating each measure.
-- **Product slicer scope:** it affects only Sales Count and Activities With Sales. Planned/Executed ignore product.
+- **Product slicer scope:** right now the product slicer does not change any measure. Sales Count and Activities With Sales use TotalSaleCount until the product mapping (OdApp, CcApp, Investments, FPMCL) is confirmed and the DAX Analyst finishes 'Sales Count (Product)'. Planned and Executed will always ignore product.
 
 ## Performance and later steps
-- **DirectQuery cost:** native queries are re-run as subqueries for every visual. The FILTER over MPO in Activities With Sales becomes a WHERE clause; check it with Performance Analyzer.
+- **DirectQuery cost:** native queries are re-run as subqueries for every visual. Keep measures as simple column filters (e.g. MPO[Executed] = "Yes", TotalSaleCount > 0) so they fold into WHERE clauses; check slow visuals with Performance Analyzer.
 - **When a DBA can help:** move MPO into a view or persisted table, add an index on [Date], and consider an unpivoted sales table so Product can relate normally.
 - **Alternative:** Import mode, if refresh latency is acceptable.
 
@@ -127,7 +66,7 @@ CALCULATE ( [Executed (Exec Date)], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) 
 Add a role on MPO, e.g. `MPO[Region] IN CALCULATETABLE(VALUES(Sec[Region]), Sec[UPN] = USERPRINCIPALNAME())`, using a small security table.
 
 ## Visual notes
-- **Palette:** Corporate dark green #005B33 / #006341, accent #78BE20, white background.
+- **Palette:** Corporate green #006341 (matches CorporateGreen.json), accent #78BE20, white background.
 - **Layout:**
   - KPI cards with PY and MoM
   - org matrix

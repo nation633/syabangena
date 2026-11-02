@@ -23,3 +23,5 @@
 13. RLS: by Province, Branch or banker? Is there a UPN mapping table?
 14. Daily views: should weekends and holidays be excluded (IS_WEEKDAY / IS_HOLIDAY)?
 15. The product slicer is a disconnected table, so it filters only Sales Count and Activities With Sales. Is that OK? And do the SWITCH-based measures perform acceptably in DirectQuery (Performance Analyzer)?
+16. Avg Executed Activities with Sales (baseline report label, request N6): what is the definition? Per banker, per day, per branch, or something else? The measure is not written until this is answered.
+17. Low Volume Flag (ROUTE 99): what Planned Activities threshold marks a unit as low volume? The placeholder is _MinPlanned = 20. Which column holds ROUTE 99 (BU or Region)?

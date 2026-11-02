@@ -1,0 +1,31 @@
+# Baseline enhancement build checklist (2026-11-02)
+Work on a COPY of the .pbix. Do not rebuild pages.
+## Before
+- [ ] Theme/look unchanged (#006341 / #7AB800 / #9AA5AB, Arial 10, white-on-green headers).
+- [ ] All SVG measures: Data category = Image URL.
+- [ ] Confirm ROUTE 99 column (BU or Region).
+## Global
+- [ ] Interim "partial month: MoM % is not like-for-like" note on Exec, BU, Region.
+- [ ] Labels: Executed only; display units K, 0 dp; secondary 9pt grey.
+- [ ] ROUTE 99 page filter + "Show low-volume units" bookmark.
+- [ ] PENDING N1/N2/N8 subtitle; N2 partial shading; N3/N4 like-for-like deltas; N5 grey-out.
+## Exec Overview
+- [ ] KPI arrows (4 SVGs). Gap to Plan card: arrow DOWN shows GREEN #006341 (test with a month where gap fell).
+- [ ] Execution Rate card: bullet + pill.
+- [ ] BU matrix 4 SVG columns.
+- [ ] Plan Bridge waterfall (Step sorted by Order; total "Executed"); MoM waterfall; 7D Avg line on Daily.
+## Business Unit
+- [ ] Cards relabelled (PENDING N7 for YTD).
+- [ ] Donut → stacked with-sale/no-sale bar.
+- [ ] BU table 8 columns; title Title - Business Unit; circles single label.
+## Region
+- [ ] Executed + Gap to Plan (grey) stacked bar.
+- [ ] Sales donut → 100% stacked (or MoM Diff waterfall).
+- [ ] Product matrix: progress column + data bars.
+- [ ] Region table + Top/Bottom 10 filter; Title - Region; drill to MicroMarket > Branch.
+## QA
+- [ ] Slicer changes move all SVGs; CY vs PY blank for 2025 (no 2024 data) footnoted.
+- [ ] No bank name anywhere; nothing pushed to GitHub.
+- [ ] Page cleanup only after user confirms the tab list.
+
+- [ ] Business Unit: replace MoM chart with L12M clustered column (see enhancement_spec 02). QA (untested in Power BI): 12 columns in date order, Aug 2026 selected -> Sep 2025-Aug 2026, no selection ends at latest month with data, selected month #006341 others #A6A6A6, BU slicer filters bars, L12M Executed/Planned match the DimDate-based measures per month.

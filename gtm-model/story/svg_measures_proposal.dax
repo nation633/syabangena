@@ -1,0 +1,237 @@
+// =====================================================================
+// PROPOSAL v2 for the DAX Analyst - DRAFT. Do not paste blindly; measures.dax remains the source of truth.
+// Author: Data Storyteller, 2026-11-02 (revision after user decision "Target = Planned").
+// Revisions of measures already in measures.dax (folder 6. SVG) + 2 NEW bullet measures.
+// Encoding: '#' -> %23, '%' in text -> %25. Colours: #006341 green (on/above plan), #B03A2E red,
+// #9AA5AB grey, #5E6A71 PY marker, #E6E9EB track. No lime green. Arial 10, black text.
+// Rule: Target = Planned. Main comparison = Executed vs Planned (100% of plan); PY = secondary marker.
+// Measures used (all exist): [Planned Activities], [Executed Activities], [Execution Rate %],
+// [Execution Rate PY], [Executed PY], [Planned PY].
+// =====================================================================
+
+table MPO
+
+	/// REVISED. Progress bar of Execution Rate % against a 100%-of-plan end mark; grey PY tick = Execution Rate PY. Image 120x20.
+	measure 'SVG Execution Progress' =
+			VAR _Rate = [Execution Rate %]
+			VAR _PY   = [Execution Rate PY]
+			VAR _Len  = 80                                    -- 80 px = 100% of plan
+			VAR _Fill = ROUND ( MIN ( MAX ( COALESCE ( _Rate, 0 ), 0 ), 1 ) * _Len, 0 )
+			VAR _PYx  = ROUND ( MIN ( MAX ( COALESCE ( _PY, 0 ), 0 ), 1 ) * _Len, 0 )
+			VAR _Col  = "%23006341"   -- bar always green; status lives in the pill
+			VAR _Label = SUBSTITUTE ( FORMAT ( _Rate, "0%" ), "%", "%25" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='0' y='5' width='" & _Len & "' height='10' fill='%23E6E9EB'/>"
+			        & "<rect x='0' y='5' width='" & _Fill & "' height='10' fill='" & _Col & "'/>"
+			        & "<rect x='" & _Len - 1 & "' y='2' width='1' height='16' fill='%23000000'/>"      -- plan (100%)
+			        & IF ( NOT ISBLANK ( _PY ), "<rect x='" & MAX ( _PYx - 1, 0 ) & "' y='3' width='2' height='14' fill='%235E6A71'/>" )
+			        & "<text x='86' y='14' font-family='Arial' font-size='10' fill='%23000000'>" & _Label & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Planned Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// REVISED. Pill on Execution Rate % vs plan (100%). Green = at/above plan, red = below plan; grey when nothing planned.
+	/// Text "NN% of plan". _Threshold = 1 (100% of plan) per user decision. Image 80x20.
+	measure 'SVG Status Pill' =
+			VAR _Threshold = 1          -- 100% of plan (user decision 2026-11-02)
+			VAR _Rate = [Execution Rate %]
+			VAR _Fill =
+			    SWITCH ( TRUE (), ISBLANK ( _Rate ), "%239AA5AB", _Rate >= _Threshold, "%23006341", "%23B03A2E" )
+			VAR _Txt =
+			    IF ( ISBLANK ( _Rate ), "no plan", SUBSTITUTE ( FORMAT ( _Rate, "0%" ), "%", "%25" ) & " of plan" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='20'>"
+			        & "<rect x='1' y='2' width='78' height='16' rx='8' fill='" & _Fill & "'/>"
+			        & "<text x='40' y='14' text-anchor='middle' font-family='Arial' font-size='10' fill='%23FFFFFF'>" & _Txt & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Planned Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// NEW. Bullet in counts: bar = Executed Activities, black target line = Planned Activities, grey tick = Executed PY.
+	/// Scale = max(Planned, Executed, Executed PY) x 1.1. Bar green at/above plan, red below. Image 120x20.
+	measure 'SVG Bullet Executed vs Planned' =
+			VAR _Cur = [Executed Activities] + 0
+			VAR _Tgt = [Planned Activities] + 0
+			VAR _PY  = [Executed PY]
+			VAR _Max = MAX ( MAX ( _Cur, _Tgt ), COALESCE ( _PY, 0 ) ) * 1.1
+			VAR _B   = ROUND ( DIVIDE ( _Cur, _Max ) * 116, 0 )
+			VAR _T   = ROUND ( 2 + DIVIDE ( _Tgt, _Max ) * 116, 0 )
+			VAR _P   = ROUND ( 2 + DIVIDE ( _PY, _Max ) * 116, 0 )
+			VAR _Col = IF ( _Cur >= _Tgt, "%23006341", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='2' y='3' width='116' height='14' fill='%23E6E9EB'/>"
+			        & "<rect x='2' y='7' width='" & _B & "' height='6' fill='" & _Col & "'/>"
+			        & IF ( NOT ISBLANK ( _PY ), "<rect x='" & _P & "' y='5' width='2' height='10' fill='%235E6A71'/>" )
+			        & "<rect x='" & _T & "' y='2' width='2' height='16' fill='%23000000'/>"
+			        & "</svg>"
+			RETURN
+			    IF ( _Tgt > 0, "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// NEW. Bullet in rate: bar = Execution Rate % on a 0-100% scale, target line at 100% of plan, grey tick = Execution Rate PY.
+	/// Use where rows differ a lot in size (banker/branch tables) so bars are comparable. Image 120x20.
+	measure 'SVG Bullet Execution Rate vs Plan' =
+			VAR _Rate = [Execution Rate %]
+			VAR _PY   = [Execution Rate PY]
+			VAR _B    = ROUND ( MIN ( MAX ( COALESCE ( _Rate, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _P    = ROUND ( 2 + MIN ( MAX ( COALESCE ( _PY, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _Col  = IF ( _Rate >= 1, "%23006341", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='2' y='3' width='100' height='14' fill='%23E6E9EB'/>"
+			        & "<rect x='2' y='7' width='" & _B & "' height='6' fill='" & _Col & "'/>"
+			        & IF ( NOT ISBLANK ( _PY ), "<rect x='" & _P & "' y='5' width='2' height='10' fill='%235E6A71'/>" )
+			        & "<rect x='102' y='2' width='2' height='16' fill='%23000000'/>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Planned Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+// NOTES (no change proposed):
+// - 'SVG Sparkline Executed' (measures.dax) already spans the months in filter context that have planned
+//   activities (VALUES(DimDate[YEAR_MONTH_KEY])); it is NOT a fixed last-12-months window. The Year/Month/Day slicers set the span.
+// - 'SVG Conversion Gauge' stays on Sales Conversion only (PROVISIONAL); not placed on Banker Detail.
+// - 'SVG KPI Arrow * MoM' unchanged (trend context, not plan).
+// - Optional title tweak: 'Title - Banker Detail' could say "NN% of plan" instead of "pp vs PY" (DAX Analyst to decide).
+
+// =====================================================================
+// v3 - COMPARISON / FLOATING-BAR measures. DRAFT for the DAX Analyst. 2026-11-02, Data Storyteller.
+// Target = Planned. Inputs are existing measures only: [Planned Activities], [Executed Activities],
+// [Not Executed], [Execution Rate %], [Executed PY], [Executed PM], [Planned PY], [Execution Rate PY].
+// Encoding %23 / %25. Colours #006341 / amber %23C98A1A / #B03A2E / grey #9AA5AB / PY #5E6A71. Counts only.
+// =====================================================================
+
+table MPO
+
+	/// NEW. Activities still missing to reach plan (Planned - Executed). Equals [Not Executed] by definition;
+	/// kept as a named "gap" measure so titles/visuals read as target language. Planned date.
+	measure 'Gap to Plan' =
+			VAR _P = [Planned Activities]
+			RETURN IF ( NOT ISBLANK ( _P ), _P - [Executed Activities] )
+		formatString: #,0
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Gap as share of plan = 1 - Execution Rate %.
+	measure 'Gap to Plan %' =
+			DIVIDE ( [Gap to Plan], [Planned Activities] )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Executed this period minus same period last year (count).
+	measure 'Executed CY vs PY Diff' =
+			VAR _C = [Executed Activities]
+			VAR _P = [Executed PY]
+			RETURN IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Executed this month minus previous month (count). Use on a month axis / native waterfall.
+	measure 'Executed MoM Diff' =
+			VAR _C = [Executed Activities]
+			VAR _P = [Executed PM]
+			RETURN IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Planned this period minus last year (count) - plan-volume context.
+	measure 'Planned CY vs PY Diff' =
+			VAR _C = [Planned Activities]
+			VAR _P = [Planned PY]
+			RETURN IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Waterfall helper for the native Waterfall visual (Category = 'Plan Bridge'[Step], sorted by [Order]).
+	/// Planned (start, +) -> Not Executed (-) -> total bar = Executed. Turn the visual's Total on and rename it "Executed".
+	measure 'Plan Bridge Value' =
+			SWITCH (
+			    SELECTEDVALUE ( 'Plan Bridge'[Step] ),
+			    "Planned",      [Planned Activities],
+			    "Not Executed", - [Not Executed]
+			)
+		formatString: #,0;-#,0;0
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Floating bar: grey track = Planned (target, black end line), bar from 0 to Executed, red/amber/green
+	/// floating segment Executed -> Planned = gap to plan (3-band colour like SVG Status Pill). Image 120x20.
+	measure 'SVG Floating Bar Gap to Plan' =
+			VAR _P = [Planned Activities] + 0
+			VAR _E = [Executed Activities] + 0
+			VAR _R = DIVIDE ( _E, _P )
+			VAR _Max = MAX ( _P, _E )
+			VAR _xE = ROUND ( DIVIDE ( _E, _Max ) * 100, 0 )
+			VAR _xP = ROUND ( DIVIDE ( _P, _Max ) * 100, 0 )
+			VAR _GapCol = SWITCH ( TRUE (), _R >= 1, "%23006341", _R >= 0.9, "%23C98A1A", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='2' y='6' width='" & _xE & "' height='8' fill='%23006341'/>"
+			        & IF ( _xP > _xE, "<rect x='" & 2 + _xE & "' y='6' width='" & _xP - _xE & "' height='8' fill='" & _GapCol & "' fill-opacity='0.35' stroke='" & _GapCol & "' stroke-width='1'/>" )
+			        & "<rect x='" & 1 + _xP & "' y='2' width='2' height='16' fill='%23000000'/>"
+			        & "<text x='106' y='14' font-family='Arial' font-size='9' fill='%23000000'>" & FORMAT ( _P - _E, "#,0" ) & "</text>"
+			        & "</svg>"
+			RETURN IF ( _P > 0, "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Dumbbell: Execution Rate PY (grey dot) to Execution Rate % (green/amber/red dot vs plan), 0-100% scale,
+	/// black line at 100% of plan. Rate-based so rows of different size compare. Image 120x20.
+	measure 'SVG Dumbbell CY vs PY' =
+			VAR _C = [Execution Rate %]
+			VAR _P = [Execution Rate PY]
+			VAR _xC = ROUND ( 4 + MIN ( MAX ( COALESCE ( _C, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _xP = ROUND ( 4 + MIN ( MAX ( COALESCE ( _P, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _Col = SWITCH ( TRUE (), _C >= 1, "%23006341", _C >= 0.9, "%23C98A1A", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='4' y='9' width='100' height='2' fill='%23E6E9EB'/>"
+			        & "<rect x='104' y='3' width='1' height='14' fill='%23000000'/>"
+			        & IF ( NOT ISBLANK ( _P ),
+			            "<line x1='" & _xP & "' y1='10' x2='" & _xC & "' y2='10' stroke='%239AA5AB' stroke-width='2'/>"
+			            & "<circle cx='" & _xP & "' cy='10' r='4' fill='%235E6A71'/>" )
+			        & "<circle cx='" & _xC & "' cy='10' r='4' fill='" & _Col & "'/>"
+			        & "</svg>"
+			RETURN IF ( NOT ISBLANK ( _C ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 8. Comparison (PROPOSED)
+
+	/// NEW. Diverging bar of Executed MoM Diff around a centre line: right/green = up, left/red = down, label = signed count.
+	/// Scaled to the largest |diff| among the rows of the visual's level (ALLSELECTED of Branch here - DAX Analyst
+	/// may swap to the Level parameter column). Image 120x20.
+	measure 'SVG MoM Change Bar' =
+			VAR _d = [Executed MoM Diff]
+			VAR _MaxAbs =
+			    MAXX ( ALLSELECTED ( MPO[Branch] ), ABS ( [Executed MoM Diff] ) )
+			VAR _len = ROUND ( DIVIDE ( ABS ( _d ), _MaxAbs ) * 40, 0 )
+			VAR _x = IF ( _d >= 0, 50, 50 - _len )
+			VAR _Col = IF ( _d >= 0, "%23006341", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='50' y='2' width='1' height='16' fill='%239AA5AB'/>"
+			        & "<rect x='" & _x & "' y='6' width='" & _len & "' height='8' fill='" & _Col & "'/>"
+			        & "<text x='94' y='14' font-family='Arial' font-size='9' fill='%23000000'>" & FORMAT ( _d, "+#,0;-#,0;0" ) & "</text>"
+			        & "</svg>"
+			RETURN IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 8. Comparison (PROPOSED)
+
+// NEW disconnected table for the plan waterfall (no relationships; Import, 2 rows, static labels - not data).
+table 'Plan Bridge'
+	column Step
+		dataType: string
+		sourceColumn: [Value1]
+		sortByColumn: Order
+	column Order
+		dataType: int64
+		isHidden
+		sourceColumn: [Value2]
+	partition 'Plan Bridge' = calculated
+		mode: import
+		source = { ( "Planned", 1 ), ( "Not Executed", 2 ) }

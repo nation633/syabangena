@@ -284,6 +284,925 @@ table MPO
 		formatString: #,0
 		displayFolder: 4. Sales (PROVISIONAL)
 
+	/// PROVISIONAL. (Selected period - last year) / last year; planned date.
+	measure 'Sales Count YoY %' =
+			VAR _Cur = [Sales Count]
+			VAR _PY  = [Sales Count PY]
+			RETURN
+			    DIVIDE ( _Cur - _PY, _PY )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. (This month - previous month) / previous month; planned date.
+	measure 'Sales Count MoM %' =
+			VAR _Cur = [Sales Count]
+			VAR _PM  = [Sales Count PM]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Same period last year; planned date.
+	measure 'Activities With Sales PY' =
+			CALCULATE ( [Activities With Sales], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Previous month; planned date.
+	measure 'Activities With Sales PM' =
+			CALCULATE ( [Activities With Sales], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. % change vs last year.
+	measure 'Activities With Sales YoY %' =
+			VAR _Cur = [Activities With Sales]
+			VAR _PY  = [Activities With Sales PY]
+			RETURN
+			    DIVIDE ( _Cur - _PY, _PY )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. % change vs previous month.
+	measure 'Activities With Sales MoM %' =
+			VAR _Cur = [Activities With Sales]
+			VAR _PM  = [Activities With Sales PM]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Conversion % same period last year.
+	measure 'Conversion PY' =
+			CALCULATE ( [Conversion %], SAMEPERIODLASTYEAR ( DimDate[ACTUAL_DATE] ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Conversion % previous month.
+	measure 'Conversion PM' =
+			CALCULATE ( [Conversion %], DATEADD ( DimDate[ACTUAL_DATE], -1, MONTH ) )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Change in percentage points vs last year.
+	measure 'Conversion YoY pp' =
+			VAR _Cur = [Conversion %]
+			VAR _PY  = [Conversion PY]
+			RETURN
+			    IF ( NOT ISBLANK ( _Cur ) && NOT ISBLANK ( _PY ), _Cur - _PY )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Change in percentage points vs previous month.
+	measure 'Conversion MoM pp' =
+			VAR _Cur = [Conversion %]
+			VAR _PM  = [Conversion PM]
+			RETURN
+			    IF ( NOT ISBLANK ( _Cur ) && NOT ISBLANK ( _PM ), _Cur - _PM )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Average daily Sales Count over the 7 calendar days ending on the current day; planned date.
+	measure 'Sales Count 7D Avg' =
+			// PROVISIONAL (Sales Count)
+			VAR _LastDay = MAX ( DimDate[ACTUAL_DATE] )
+			VAR _Window =
+			    DATESINPERIOD ( DimDate[ACTUAL_DATE], _LastDay, -7, DAY )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _LastDay ),
+			        DIVIDE ( CALCULATE ( [Sales Count], _Window ), COUNTROWS ( _Window ) )
+			    )
+		formatString: #,0.0
+		displayFolder: 3. Rolling
+
+	/// PROVISIONAL. Executed activities (Executed = Yes) with HasSale = 0; planned date.
+	measure 'Executed No Sale' =
+			// PROVISIONAL: executed activities with no sale
+			CALCULATE (
+			    DISTINCTCOUNT ( MPO[ActivityId] ),
+			    KEEPFILTERS ( MPO[Executed] = "Yes" ),
+			    KEEPFILTERS ( MPO[HasSale] = 0 )
+			)
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// PROVISIONAL. Companies with more than 1 executed visit and no sale across those visits in the current context; planned date.
+	measure 'Repeat No-Sale Companies' =
+			// PROVISIONAL: companies with > 1 executed visit and no sale on any of them
+			VAR _Companies =
+			    ADDCOLUMNS (
+			        VALUES ( MPO[Company] ),
+			        "@Executed", [Executed Activities],
+			        "@WithSales", [Activities With Sales]
+			    )
+			RETURN
+			    COUNTROWS (
+			        FILTER (
+			            _Companies,
+			            [@Executed] > 1
+			                && COALESCE ( [@WithSales], 0 ) = 0
+			        )
+			    )
+		formatString: #,0
+		displayFolder: 4. Sales (PROVISIONAL)
+
+	/// Distinct companies on planned activities in context (includes 'Unknown'). Planned date.
+	measure 'Companies Visited' =
+			DISTINCTCOUNT ( MPO[Company] )
+		formatString: #,0
+		displayFolder: 5. Coverage
+
+	/// Distinct branches on planned activities in context. Planned date.
+	measure 'Branches' =
+			DISTINCTCOUNT ( MPO[Branch] )
+		formatString: #,0
+		displayFolder: 5. Coverage
+
+	/// Distinct bankers (StaffNumber) on planned activities in context. Planned date.
+	measure 'Bankers' =
+			DISTINCTCOUNT ( MPO[StaffNumber] )
+		formatString: #,0
+		displayFolder: 5. Coverage
+
+	/// Progress bar vs plan: bar = Execution Rate % (80 px = 100% of plan), black end mark = plan, grey tick = Execution Rate PY. Planned date.
+	measure 'SVG Execution Progress' =
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )   -- 0 when planned but nothing executed
+			VAR _PY   = [Execution Rate PY]
+			VAR _Len  = 80                                    -- 80 px = 100% of plan
+			VAR _Fill = ROUND ( MIN ( MAX ( COALESCE ( _Rate, 0 ), 0 ), 1 ) * _Len, 0 )
+			VAR _PYx  = ROUND ( MIN ( MAX ( COALESCE ( _PY, 0 ), 0 ), 1 ) * _Len, 0 )
+			VAR _Col  = "%23006341"   -- bar always green; status lives in the pill
+			VAR _Label = SUBSTITUTE ( FORMAT ( _Rate, "0%" ), "%", "%25" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='0' y='5' width='" & _Len & "' height='10' fill='%23E6E9EB'/>"
+			        & "<rect x='0' y='5' width='" & _Fill & "' height='10' fill='" & _Col & "'/>"
+			        & "<rect x='" & _Len - 1 & "' y='2' width='1' height='16' fill='%23000000'/>"      -- plan (100%)
+			        & IF ( NOT ISBLANK ( _PY ), "<rect x='" & MAX ( _PYx - 1, 0 ) & "' y='3' width='2' height='14' fill='%235E6A71'/>" )
+			        & "<text x='86' y='14' font-family='Arial' font-size='10' fill='%23000000'>" & _Label & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Planned Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Status pill vs plan (Target = Planned): green >= 100% of plan, amber 90% to under 100%, red below 90%; reads 'NN% of plan'. Planned date.
+	measure 'SVG Status Pill' =
+			VAR _GreenFrom = 1          -- >= 100% of plan: green (user decision 2026-11-02)
+			VAR _AmberFrom = 0.9        -- >= 90% and < 100%: amber; below 90%: red
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )   -- 0 when planned but nothing executed
+			VAR _Fill = SWITCH ( TRUE (), _Rate >= _GreenFrom, "%23006341", _Rate >= _AmberFrom, "%23C98A1A", "%23B03A2E" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( ROUNDDOWN ( _Rate, 2 ), "0%" ), "%", "%25" ) & " of plan"   -- round down: 99.6% never reads 100%
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='20'>"
+			        & "<rect x='1' y='2' width='78' height='16' rx='8' fill='" & _Fill & "'/>"
+			        & "<text x='40' y='14' text-anchor='middle' font-family='Arial' font-size='10' fill='%23FFFFFF'>" & _Txt & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _Planned ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Bullet vs plan: bar = Executed Activities (green >= 100% of plan, amber >= 90%, red < 90%), black line = Planned Activities, grey tick = Executed PY. Planned date.
+	measure 'SVG Bullet Executed vs Planned' =
+			VAR _Cur = [Executed Activities] + 0
+			VAR _Tgt = [Planned Activities] + 0
+			VAR _PY  = [Executed PY]
+			VAR _Max = MAX ( MAX ( _Cur, _Tgt ), COALESCE ( _PY, 0 ) ) * 1.1
+			VAR _B   = ROUND ( DIVIDE ( _Cur, _Max ) * 116, 0 )
+			VAR _T   = ROUND ( 2 + DIVIDE ( _Tgt, _Max ) * 116, 0 )
+			VAR _P   = ROUND ( 2 + DIVIDE ( _PY, _Max ) * 116, 0 )
+			VAR _GreenFrom = 1          -- same bands as SVG Status Pill
+			VAR _AmberFrom = 0.9
+			VAR _R   = DIVIDE ( _Cur, _Tgt, 0 )
+			VAR _Col = SWITCH ( TRUE (), _R >= _GreenFrom, "%23006341", _R >= _AmberFrom, "%23C98A1A", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='2' y='3' width='116' height='14' fill='%23E6E9EB'/>"
+			        & "<rect x='2' y='7' width='" & _B & "' height='6' fill='" & _Col & "'/>"
+			        & IF ( NOT ISBLANK ( _PY ), "<rect x='" & _P & "' y='5' width='2' height='10' fill='%235E6A71'/>" )
+			        & "<rect x='" & _T & "' y='2' width='2' height='16' fill='%23000000'/>"
+			        & "</svg>"
+			RETURN
+			    IF ( _Tgt > 0, "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Rate bullet 0-100% of plan: bar = Execution Rate % (green/amber/red bands as pill), black line = 100% (plan), grey tick = Execution Rate PY. Planned date.
+	measure 'SVG Bullet Execution Rate vs Plan' =
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )   -- 0 when planned but nothing executed
+			VAR _PY   = [Execution Rate PY]
+			VAR _B    = ROUND ( MIN ( MAX ( COALESCE ( _Rate, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _P    = ROUND ( 2 + MIN ( MAX ( COALESCE ( _PY, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _GreenFrom = 1          -- same bands as SVG Status Pill
+			VAR _AmberFrom = 0.9
+			VAR _Col  = SWITCH ( TRUE (), _Rate >= _GreenFrom, "%23006341", _Rate >= _AmberFrom, "%23C98A1A", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='2' y='3' width='100' height='14' fill='%23E6E9EB'/>"
+			        & "<rect x='2' y='7' width='" & _B & "' height='6' fill='" & _Col & "'/>"
+			        & IF ( NOT ISBLANK ( _PY ), "<rect x='" & _P & "' y='5' width='2' height='10' fill='%235E6A71'/>" )
+			        & "<rect x='102' y='2' width='2' height='16' fill='%23000000'/>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Planned Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Monthly sparkline (planned date) of Executed (green) and Not Executed (grey) for months in context that have planned activities. One grouped query by month. Image 120x20.
+	measure 'SVG Sparkline Executed' =
+			VAR _Months =
+			    FILTER (
+			        ADDCOLUMNS (
+			            VALUES ( DimDate[YEAR_MONTH_KEY] ),
+			            "@P", [Planned Activities],
+			            "@E", [Executed Activities] + 0,
+			            "@N", [Not Executed] + 0
+			        ),
+			        NOT ISBLANK ( [@P] )
+			    )
+			VAR _Idx =
+			    ADDCOLUMNS (
+			        _Months,
+			        "@i",
+			            VAR _k = DimDate[YEAR_MONTH_KEY]
+			            RETURN COUNTROWS ( FILTER ( _Months, DimDate[YEAR_MONTH_KEY] < _k ) ) + 0
+			    )
+			VAR _n = COUNTROWS ( _Months )
+			VAR _Max = MAX ( MAXX ( _Months, [@E] ), MAXX ( _Months, [@N] ) )
+			VAR _W = 120
+			VAR _H = 20
+			VAR _Step = DIVIDE ( _W - 4, MAX ( _n - 1, 1 ) )
+			VAR _PtsE =
+			    CONCATENATEX ( _Idx,
+			        ROUND ( 2 + [@i] * _Step, 1 ) & "," & ROUND ( _H - 2 - DIVIDE ( [@E], _Max ) * ( _H - 4 ), 1 ),
+			        " ", [@i], ASC )
+			VAR _PtsN =
+			    CONCATENATEX ( _Idx,
+			        ROUND ( 2 + [@i] * _Step, 1 ) & "," & ROUND ( _H - 2 - DIVIDE ( [@N], _Max ) * ( _H - 4 ), 1 ),
+			        " ", [@i], ASC )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='" & _W & "' height='" & _H & "'>"
+			        & "<polyline fill='none' stroke='%239AA5AB' stroke-width='1' points='" & _PtsN & "'/>"
+			        & "<polyline fill='none' stroke='%23006341' stroke-width='1.5' points='" & _PtsE & "'/>"
+			        & "</svg>"
+			RETURN
+			    IF ( _n >= 2 && _Max > 0, "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// PROVISIONAL. Semicircle gauge of Conversion % (0-100%), grey tick = Conversion PY. Image 120x70.
+	measure 'SVG Conversion Gauge' =
+			// PROVISIONAL (Conversion %)
+			VAR _Conv = [Conversion %]
+			VAR _v = MIN ( MAX ( COALESCE ( _Conv, 0 ), 0 ), 1 )
+			VAR _p = [Conversion PY]
+			VAR _r = 45
+			VAR _cx = 60
+			VAR _cy = 55
+			VAR _a = PI () * ( 1 - _v )
+			VAR _x = ROUND ( _cx + _r * COS ( _a ), 2 )
+			VAR _y = ROUND ( _cy - _r * SIN ( _a ), 2 )
+			VAR _ap = PI () * ( 1 - MIN ( MAX ( COALESCE ( _p, 0 ), 0 ), 1 ) )
+			VAR _Tick =
+			    IF ( NOT ISBLANK ( _p ),
+			        "<line x1='" & ROUND ( _cx + ( _r - 8 ) * COS ( _ap ), 2 ) & "' y1='" & ROUND ( _cy - ( _r - 8 ) * SIN ( _ap ), 2 )
+			            & "' x2='" & ROUND ( _cx + ( _r + 8 ) * COS ( _ap ), 2 ) & "' y2='" & ROUND ( _cy - ( _r + 8 ) * SIN ( _ap ), 2 )
+			            & "' stroke='%235E6A71' stroke-width='2'/>" )
+			VAR _Label = SUBSTITUTE ( FORMAT ( _Conv, "0.0%" ), "%", "%25" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='70'>"
+			        & "<path d='M15,55 A45,45 0 0 1 105,55' fill='none' stroke='%23E6E9EB' stroke-width='10'/>"
+			        & IF ( _v > 0, "<path d='M15,55 A45,45 0 0 1 " & _x & "," & _y & "' fill='none' stroke='%23006341' stroke-width='10'/>" )
+			        & _Tick
+			        & "<text x='60' y='52' text-anchor='middle' font-family='Arial' font-size='10' fill='%23000000'>" & _Label & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Executed Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Arrow + Executed MoM %. Image 80x18.
+	measure 'SVG KPI Arrow Executed MoM' =
+			// Rise = green, fall = red.
+			VAR _d = [Executed MoM %]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23006341", _d < 0, "%23B03A2E", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " MoM"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Arrow + Planned MoM %. Image 80x18.
+	measure 'SVG KPI Arrow Planned MoM' =
+			// Rise = green, fall = red.
+			VAR _d = [Planned MoM %]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23006341", _d < 0, "%23B03A2E", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " MoM"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// PROVISIONAL. Arrow + Sales Count MoM %. Image 80x18.
+	measure 'SVG KPI Arrow Sales Count MoM' =
+			// PROVISIONAL (Sales Count)
+			// Rise = green, fall = red.
+			VAR _d = [Sales Count MoM %]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23006341", _d < 0, "%23B03A2E", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " MoM"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Arrow + Not Executed MoM % (reversed colours). Image 80x18.
+	measure 'SVG KPI Arrow Not Executed MoM' =
+			// REVERSED colours: a rise is bad (red), a fall is good (green).
+			VAR _d = [Not Executed MoM %]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23B03A2E", _d < 0, "%23006341", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " MoM"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Text for the Region selection.
+	measure 'Sel Region' =
+			IF ( ISFILTERED ( MPO[Region] ),
+			    IF ( HASONEVALUE ( MPO[Region] ), VALUES ( MPO[Region] ), COUNTROWS ( VALUES ( MPO[Region] ) ) & " regions" ),
+			    "All regions" )
+		displayFolder: 7. Titles
+
+	/// Text for the date selection (DimDate range).
+	measure 'Sel Period' =
+			VAR _Min = MIN ( DimDate[ACTUAL_DATE] )
+			VAR _Max = MAX ( DimDate[ACTUAL_DATE] )
+			RETURN
+			    IF ( ISFILTERED ( DimDate ),
+			        FORMAT ( _Min, "d MMM yyyy" ) & " - " & FORMAT ( _Max, "d MMM yyyy" ),
+			        "All dates" )
+		displayFolder: 7. Titles
+
+	/// Overview V2 title.
+	measure 'Title - Executed vs PY' =
+			VAR _BU = IF ( HASONEVALUE ( MPO[BusinessUnit] ) && ISFILTERED ( MPO[BusinessUnit] ), VALUES ( MPO[BusinessUnit] ) & " | " )
+			VAR _Br = IF ( HASONEVALUE ( MPO[Branch] ) && ISFILTERED ( MPO[Branch] ), VALUES ( MPO[Branch] ) & " | " )
+			RETURN
+			    "Executed vs not executed by month | " & _BU & [Sel Region] & " | " & _Br & [Sel Period]
+		displayFolder: 7. Titles
+
+	/// Banker Detail drill-through title: name | period | execution as % of plan. Planned date.
+	measure 'Title - Banker Detail' =
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )
+			VAR _pp = [Execution Rate YoY pp]
+			RETURN
+			    "Banker: " & SELECTEDVALUE ( MPO[BankerName], "multiple bankers" )
+			        & " | " & [Sel Period]
+			        & IF ( NOT ISBLANK ( _Planned ),
+			            " | Executed " & FORMAT ( ROUNDDOWN ( _Rate, 3 ), "0.0%" ) & " of plan ("
+			                & FORMAT ( [Executed Activities] + 0, "#,0" ) & " of " & FORMAT ( _Planned, "#,0" ) & ")"
+			                & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp vs PY)" ),
+			            " | no planned activities" )
+		displayFolder: 7. Titles
+
+	/// Business unit page title: selection (All / single / N business units) | period | Executed NN.N% of plan (x of y) [pp vs PY]. Planned date.
+	measure 'Title - Business Unit' =
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )
+			VAR _pp = [Execution Rate YoY pp]
+			VAR _Sel =
+			    IF ( ISFILTERED ( MPO[BusinessUnit] ),
+			        IF ( HASONEVALUE ( MPO[BusinessUnit] ), VALUES ( MPO[BusinessUnit] ), COUNTROWS ( VALUES ( MPO[BusinessUnit] ) ) & " business units" ),
+			        "All business units" )
+			RETURN
+			    "Business unit: " & _Sel
+			        & " | " & [Sel Period]
+			        & IF ( NOT ISBLANK ( _Planned ),
+			            " | Executed " & FORMAT ( ROUNDDOWN ( _Rate, 3 ), "0.0%" ) & " of plan ("
+			                & FORMAT ( [Executed Activities] + 0, "#,0" ) & " of " & FORMAT ( _Planned, "#,0" ) & ")"
+			                & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp vs PY)" ),
+			            " | no planned activities" )
+		displayFolder: 7. Titles
+
+	/// Region page title: selection (All / single / N regions) | period | Executed NN.N% of plan (x of y) [pp vs PY]. Planned date.
+	measure 'Title - Region' =
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )
+			VAR _pp = [Execution Rate YoY pp]
+			VAR _Sel =
+			    IF ( ISFILTERED ( MPO[Region] ),
+			        IF ( HASONEVALUE ( MPO[Region] ), VALUES ( MPO[Region] ), COUNTROWS ( VALUES ( MPO[Region] ) ) & " regions" ),
+			        "All regions" )
+			RETURN
+			    "Region: " & _Sel
+			        & " | " & [Sel Period]
+			        & IF ( NOT ISBLANK ( _Planned ),
+			            " | Executed " & FORMAT ( ROUNDDOWN ( _Rate, 3 ), "0.0%" ) & " of plan ("
+			                & FORMAT ( [Executed Activities] + 0, "#,0" ) & " of " & FORMAT ( _Planned, "#,0" ) & ")"
+			                & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp vs PY)" ),
+			            " | no planned activities" )
+		displayFolder: 7. Titles
+
+	/// Branch page title: selection (All / single / N branches) | period | Executed NN.N% of plan (x of y) [pp vs PY]. Planned date.
+	measure 'Title - Branch' =
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )
+			VAR _pp = [Execution Rate YoY pp]
+			VAR _Sel =
+			    IF ( ISFILTERED ( MPO[Branch] ),
+			        IF ( HASONEVALUE ( MPO[Branch] ), VALUES ( MPO[Branch] ), COUNTROWS ( VALUES ( MPO[Branch] ) ) & " branches" ),
+			        "All branches" )
+			RETURN
+			    "Branch: " & _Sel
+			        & " | " & [Sel Period]
+			        & IF ( NOT ISBLANK ( _Planned ),
+			            " | Executed " & FORMAT ( ROUNDDOWN ( _Rate, 3 ), "0.0%" ) & " of plan ("
+			                & FORMAT ( [Executed Activities] + 0, "#,0" ) & " of " & FORMAT ( _Planned, "#,0" ) & ")"
+			                & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp vs PY)" ),
+			            " | no planned activities" )
+		displayFolder: 7. Titles
+
+	/// Company page title: selection (All / single / N companies) | period | Executed NN.N% of plan (x of y) [pp vs PY]. Planned date.
+	measure 'Title - Company' =
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )
+			VAR _pp = [Execution Rate YoY pp]
+			VAR _Sel =
+			    IF ( ISFILTERED ( MPO[Company] ),
+			        IF ( HASONEVALUE ( MPO[Company] ), VALUES ( MPO[Company] ), COUNTROWS ( VALUES ( MPO[Company] ) ) & " companies" ),
+			        "All companies" )
+			RETURN
+			    "Company: " & _Sel
+			        & " | " & [Sel Period]
+			        & IF ( NOT ISBLANK ( _Planned ),
+			            " | Executed " & FORMAT ( ROUNDDOWN ( _Rate, 3 ), "0.0%" ) & " of plan ("
+			                & FORMAT ( [Executed Activities] + 0, "#,0" ) & " of " & FORMAT ( _Planned, "#,0" ) & ")"
+			                & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp vs PY)" ),
+			            " | no planned activities" )
+		displayFolder: 7. Titles
+
+	/// Branch Detail drill-through title: branch (region / micromarket) | period | Executed NN.N% of plan (x of y) [pp vs PY]. Planned date.
+	measure 'Title - Branch Detail' =
+			VAR _Planned = [Planned Activities]
+			VAR _Rate = COALESCE ( [Execution Rate %], 0 )
+			VAR _pp = [Execution Rate YoY pp]
+			VAR _Branch = SELECTEDVALUE ( MPO[Branch], "multiple branches" )
+			VAR _Reg = SELECTEDVALUE ( MPO[Region], "multiple regions" )
+			VAR _MM = SELECTEDVALUE ( MPO[MicroMarket], "multiple micromarkets" )
+			RETURN
+			    "Branch: " & _Branch & " (" & _Reg & " / " & _MM & ")"
+			        & " | " & [Sel Period]
+			        & IF ( NOT ISBLANK ( _Planned ),
+			            " | Executed " & FORMAT ( ROUNDDOWN ( _Rate, 3 ), "0.0%" ) & " of plan ("
+			                & FORMAT ( [Executed Activities] + 0, "#,0" ) & " of " & FORMAT ( _Planned, "#,0" ) & ")"
+			                & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp vs PY)" ),
+			            " | no planned activities" )
+		displayFolder: 7. Titles
+
+	/// PROVISIONAL. Sales Conversion V1 title.
+	measure 'Title - Conversion' =
+			// PROVISIONAL
+			VAR _pp = [Conversion MoM pp]
+			RETURN
+			    "Conversion " & FORMAT ( [Conversion %], "0.0%" )
+			        & IF ( NOT ISBLANK ( _pp ), " (" & FORMAT ( _pp * 100, "+0.0;-0.0;0.0" ) & " pp MoM)" )
+			        & " - provisional | " & [Sel Region] & " | " & [Sel Period]
+		displayFolder: 7. Titles
+
+	/// Activities still missing to reach plan (Planned - Executed). Alias of Not Executed for target wording. Planned date.
+	measure 'Gap to Plan' =
+			[Not Executed]   -- alias: single definition lives in [Not Executed]
+		formatString: #,0
+		displayFolder: 8. Comparison
+
+	/// Gap to Plan / Planned Activities (= 1 - Execution Rate %). Planned date.
+	measure 'Gap to Plan %' =
+			DIVIDE ( [Gap to Plan], [Planned Activities] )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 8. Comparison
+
+	/// Executed minus same period last year (count). Blank when either side is blank. Planned date.
+	measure 'Executed CY vs PY Diff' =
+			VAR _C = [Executed Activities]
+			VAR _P = [Executed PY]
+			RETURN
+			    IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 8. Comparison
+
+	/// Planned minus same period last year (count). Blank when either side is blank. Planned date.
+	measure 'Planned CY vs PY Diff' =
+			VAR _C = [Planned Activities]
+			VAR _P = [Planned PY]
+			RETURN
+			    IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 8. Comparison
+
+	/// Executed minus previous month (count). Use on a month axis / native waterfall. Blank when either side is blank. Planned date.
+	measure 'Executed MoM Diff' =
+			VAR _C = [Executed Activities]
+			VAR _P = [Executed PM]
+			RETURN
+			    IF ( NOT ISBLANK ( _C ) && NOT ISBLANK ( _P ), _C - _P )
+		formatString: +#,0;-#,0;0
+		displayFolder: 8. Comparison
+
+	/// Native Waterfall helper: Category = 'Plan Bridge'[Step] (sorted by Order); turn Total on and rename it 'Executed'. Planned date.
+	measure 'Plan Bridge Value' =
+			SWITCH (
+			    SELECTEDVALUE ( 'Plan Bridge'[Step] ),
+			    "Planned",      [Planned Activities],
+			    "Not Executed", - [Not Executed]
+			)
+		formatString: #,0;-#,0;0
+		displayFolder: 8. Comparison
+
+	/// Floating bar: green 0 -> Executed, banded segment Executed -> Planned (gap), black line = plan, label = gap count. Planned date. Image 140x20.
+	measure 'SVG Floating Bar Gap to Plan' =
+			VAR _GreenFrom = 1          -- same bands as SVG Status Pill
+			VAR _AmberFrom = 0.9
+			VAR _P = [Planned Activities] + 0
+			VAR _E = [Executed Activities] + 0
+			VAR _R = DIVIDE ( _E, _P, 0 )
+			VAR _Max = MAX ( _P, _E )
+			VAR _xE = ROUND ( DIVIDE ( _E, _Max, 0 ) * 100, 0 )
+			VAR _xP = ROUND ( DIVIDE ( _P, _Max, 0 ) * 100, 0 )
+			VAR _GapCol = SWITCH ( TRUE (), _R >= _GreenFrom, "%23006341", _R >= _AmberFrom, "%23C98A1A", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='140' height='20'>"
+			        & "<rect x='2' y='6' width='" & _xE & "' height='8' fill='%23006341'/>"
+			        & IF ( _xP > _xE, "<rect x='" & 2 + _xE & "' y='6' width='" & _xP - _xE & "' height='8' fill='" & _GapCol & "' fill-opacity='0.35' stroke='" & _GapCol & "' stroke-width='1'/>" )
+			        & "<rect x='" & 1 + _xP & "' y='2' width='2' height='16' fill='%23000000'/>"
+			        & "<text x='108' y='14' font-family='Arial' font-size='9' fill='%23000000'>" & FORMAT ( _P - _E, "#,0" ) & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( _P > 0, "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 8. Comparison
+
+	/// Dumbbell 0-100%: grey dot = Execution Rate PY, banded dot = Execution Rate %, black line = 100% of plan. Planned date. Image 120x20.
+	measure 'SVG Dumbbell CY vs PY' =
+			VAR _GreenFrom = 1          -- same bands as SVG Status Pill
+			VAR _AmberFrom = 0.9
+			VAR _C = COALESCE ( [Execution Rate %], 0 )   -- 0 when planned but nothing executed
+			VAR _P = [Execution Rate PY]
+			VAR _xC = ROUND ( 4 + MIN ( MAX ( _C, 0 ), 1 ) * 100, 0 )
+			VAR _xP = ROUND ( 4 + MIN ( MAX ( COALESCE ( _P, 0 ), 0 ), 1 ) * 100, 0 )
+			VAR _Col = SWITCH ( TRUE (), _C >= _GreenFrom, "%23006341", _C >= _AmberFrom, "%23C98A1A", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='20'>"
+			        & "<rect x='4' y='9' width='100' height='2' fill='%23E6E9EB'/>"
+			        & "<rect x='104' y='3' width='1' height='14' fill='%23000000'/>"
+			        & IF ( NOT ISBLANK ( _P ),
+			            "<line x1='" & _xP & "' y1='10' x2='" & _xC & "' y2='10' stroke='%239AA5AB' stroke-width='2'/>"
+			            & "<circle cx='" & _xP & "' cy='10' r='4' fill='%235E6A71'/>" )
+			        & "<circle cx='" & _xC & "' cy='10' r='4' fill='" & _Col & "'/>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( [Planned Activities] ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 8. Comparison
+
+	/// Diverging bar of Executed MoM Diff (green up / red down) scaled to the largest |diff| at the level in scope. Planned date. Image 130x20.
+	measure 'SVG MoM Change Bar' =
+			// Level-agnostic scale: largest |diff| among the visible rows of whichever level is in scope
+			// (works with the Level field parameter, which swaps the real column). Deepest level checked first.
+			VAR _d = [Executed MoM Diff]
+			VAR _MaxAbs =
+			    SWITCH ( TRUE (),
+			        ISINSCOPE ( MPO[Company] ),  MAXX ( ALLSELECTED ( MPO[Company] ), ABS ( [Executed MoM Diff] ) ),
+			        ISINSCOPE ( MPO[BankerName] ),  MAXX ( ALLSELECTED ( MPO[BankerName] ), ABS ( [Executed MoM Diff] ) ),
+			        ISINSCOPE ( MPO[Branch] ),  MAXX ( ALLSELECTED ( MPO[Branch] ), ABS ( [Executed MoM Diff] ) ),
+			        ISINSCOPE ( MPO[MicroMarket] ),  MAXX ( ALLSELECTED ( MPO[MicroMarket] ), ABS ( [Executed MoM Diff] ) ),
+			        ISINSCOPE ( MPO[Region] ),  MAXX ( ALLSELECTED ( MPO[Region] ), ABS ( [Executed MoM Diff] ) ),
+			        ISINSCOPE ( MPO[BusinessUnit] ),  MAXX ( ALLSELECTED ( MPO[BusinessUnit] ), ABS ( [Executed MoM Diff] ) ),
+			        ABS ( _d )   -- card / no level on the axis
+			    )
+			VAR _len = COALESCE ( ROUND ( DIVIDE ( ABS ( _d ), _MaxAbs, 0 ) * 40, 0 ), 0 )
+			VAR _x = IF ( _d >= 0, 50, 50 - _len )
+			VAR _Col = IF ( _d >= 0, "%23006341", "%23B03A2E" )
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='130' height='20'>"
+			        & "<rect x='50' y='2' width='1' height='16' fill='%239AA5AB'/>"
+			        & "<rect x='" & _x & "' y='6' width='" & _len & "' height='8' fill='" & _Col & "'/>"
+			        & "<text x='96' y='14' font-family='Arial' font-size='9' fill='%23000000'>" & FORMAT ( _d, "+#,0;-#,0;0" ) & "</text>"
+			        & "</svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 8. Comparison
+
+	/// Rank of Executed MoM Diff, largest increase = 1 (dense), among ALLSELECTED members of the level in scope. Blank when the diff is blank or no level is in scope. Planned date.
+	measure 'Executed MoM Diff Rank (Up)' =
+			// Ranks among visible members of the level in scope (deepest first, as SVG MoM Change Bar).
+			// Blank diffs are excluded from the ranking table so they never take rank 1.
+			VAR _d = [Executed MoM Diff]
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _d ),
+			        SWITCH ( TRUE (),
+			            ISINSCOPE ( MPO[Company] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[Company] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, DESC, DENSE ),
+			            ISINSCOPE ( MPO[BankerName] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[BankerName] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, DESC, DENSE ),
+			            ISINSCOPE ( MPO[Branch] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[Branch] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, DESC, DENSE ),
+			            ISINSCOPE ( MPO[MicroMarket] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[MicroMarket] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, DESC, DENSE ),
+			            ISINSCOPE ( MPO[Region] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[Region] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, DESC, DENSE ),
+			            ISINSCOPE ( MPO[BusinessUnit] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[BusinessUnit] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, DESC, DENSE ),
+			            BLANK ()   -- no level in scope
+			        )
+			    )
+		formatString: 0
+		displayFolder: 8. Comparison
+
+	/// Rank of Executed MoM Diff, largest decrease = 1 (dense), ascending equivalent of Rank (Up). Planned date.
+	measure 'Executed MoM Diff Rank (Down)' =
+			// Ranks among visible members of the level in scope (deepest first, as SVG MoM Change Bar).
+			// Blank diffs are excluded from the ranking table so they never take rank 1.
+			VAR _d = [Executed MoM Diff]
+			RETURN
+			    IF (
+			        NOT ISBLANK ( _d ),
+			        SWITCH ( TRUE (),
+			            ISINSCOPE ( MPO[Company] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[Company] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, ASC, DENSE ),
+			            ISINSCOPE ( MPO[BankerName] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[BankerName] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, ASC, DENSE ),
+			            ISINSCOPE ( MPO[Branch] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[Branch] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, ASC, DENSE ),
+			            ISINSCOPE ( MPO[MicroMarket] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[MicroMarket] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, ASC, DENSE ),
+			            ISINSCOPE ( MPO[Region] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[Region] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, ASC, DENSE ),
+			            ISINSCOPE ( MPO[BusinessUnit] ),
+			                RANKX ( FILTER ( ALLSELECTED ( MPO[BusinessUnit] ), NOT ISBLANK ( [Executed MoM Diff] ) ), [Executed MoM Diff], _d, ASC, DENSE ),
+			            BLANK ()   -- no level in scope
+			        )
+			    )
+		formatString: 0
+		displayFolder: 8. Comparison
+
+	/// 1 when the row is in the top or bottom _N (10) by Executed MoM Diff, else 0. Use as a visual-level filter 'is 1'.
+	measure 'MoM Top Bottom Flag' =
+			VAR _N = 10
+			VAR _Up = [Executed MoM Diff Rank (Up)]
+			VAR _Dn = [Executed MoM Diff Rank (Down)]
+			RETURN
+			    IF ( NOT ISBLANK ( _Up ), IF ( _Up <= _N || _Dn <= _N, 1, 0 ) )
+		formatString: 0
+		displayFolder: 8. Comparison
+
+	/// 'Top 10' / 'Bottom 10' text for legend or conditional colouring (field value). Top wins when a row qualifies for both.
+	measure 'MoM Top Bottom Group' =
+			VAR _N = 10
+			VAR _Up = [Executed MoM Diff Rank (Up)]
+			VAR _Dn = [Executed MoM Diff Rank (Down)]
+			RETURN
+			    SWITCH ( TRUE (),
+			        ISBLANK ( _Up ), BLANK (),
+			        _Up <= _N, "Top " & _N,      -- Top wins if a row is in both (fewer than 2 x _N rows)
+			        _Dn <= _N, "Bottom " & _N,
+			        BLANK ()
+			    )
+		displayFolder: 8. Comparison
+
+	// ---------------------------------------------------------------------------
+	// 9. Baseline enhancements (story/baseline_enhancements.md N1-N8; N6 pending)
+	// Planned date, like the existing PM / MoM measures. Sales ones PROVISIONAL.
+	// ---------------------------------------------------------------------------
+
+	/// N1. Latest DimDate[ACTUAL_DATE] with planned activities in the current context.
+	measure 'Data Through Date' =
+			LASTNONBLANK ( DimDate[ACTUAL_DATE], [Planned Activities] )
+		formatString: d mmm yyyy
+		displayFolder: 9. Partial Month & YTD
+
+	/// N2. TRUE when the month in context runs past the latest planned date in the data (ignores date filters).
+	measure 'Is Partial Month' =
+			VAR _Through   = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			VAR _CtxStart  = MIN ( DimDate[ACTUAL_DATE] )
+			VAR _CtxEnd    = MAX ( DimDate[ACTUAL_DATE] )
+			RETURN
+			    NOT ISBLANK ( _Through ) && _CtxStart <= _Through && EOMONTH ( _CtxEnd, 0 ) > _Through
+		formatString: """TRUE"";""TRUE"";""FALSE"""
+		displayFolder: 9. Partial Month & YTD
+
+	/// N3. Executed Activities in the previous month, days 1..DAY(cut-off); cut-off = Data Through Date in a partial month, else month end. Capped at the shorter month's end. One month in context only.
+	measure 'Executed PM Same Days' =
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			VAR _Cut     = MIN ( MAX ( DimDate[ACTUAL_DATE] ), _Through )
+			VAR _PMStart = EOMONTH ( _Cut, -2 ) + 1
+			VAR _PMEnd   = MIN ( EOMONTH ( _Cut, -1 ), _PMStart + DAY ( _Cut ) - 1 )
+			RETURN
+			    IF ( HASONEVALUE ( DimDate[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
+			        CALCULATE ( [Executed Activities], REMOVEFILTERS ( DimDate ), DATESBETWEEN ( DimDate[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
+		formatString: #,0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N3. Planned Activities, previous month same days (see Executed PM Same Days).
+	measure 'Planned PM Same Days' =
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			VAR _Cut     = MIN ( MAX ( DimDate[ACTUAL_DATE] ), _Through )
+			VAR _PMStart = EOMONTH ( _Cut, -2 ) + 1
+			VAR _PMEnd   = MIN ( EOMONTH ( _Cut, -1 ), _PMStart + DAY ( _Cut ) - 1 )
+			RETURN
+			    IF ( HASONEVALUE ( DimDate[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
+			        CALCULATE ( [Planned Activities], REMOVEFILTERS ( DimDate ), DATESBETWEEN ( DimDate[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
+		formatString: #,0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N3. PROVISIONAL. Sales Count, previous month same days (see Executed PM Same Days).
+	measure 'Sales Count PM Same Days' =
+			// PROVISIONAL (Sales Count)
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			VAR _Cut     = MIN ( MAX ( DimDate[ACTUAL_DATE] ), _Through )
+			VAR _PMStart = EOMONTH ( _Cut, -2 ) + 1
+			VAR _PMEnd   = MIN ( EOMONTH ( _Cut, -1 ), _PMStart + DAY ( _Cut ) - 1 )
+			RETURN
+			    IF ( HASONEVALUE ( DimDate[YEAR_MONTH_KEY] ) && NOT ISBLANK ( _Through ),
+			        CALCULATE ( [Sales Count], REMOVEFILTERS ( DimDate ), DATESBETWEEN ( DimDate[ACTUAL_DATE], _PMStart, _PMEnd ) ) )
+		formatString: #,0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N4. (Month to date - previous month same days) / previous month same days.
+	measure 'Executed MoM % Like-for-Like' =
+			VAR _Cur = [Executed Activities]
+			VAR _PM  = [Executed PM Same Days]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 9. Partial Month & YTD
+
+	/// N4. Planned, like-for-like MoM %.
+	measure 'Planned MoM % Like-for-Like' =
+			VAR _Cur = [Planned Activities]
+			VAR _PM  = [Planned PM Same Days]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 9. Partial Month & YTD
+
+	/// N4. PROVISIONAL. Sales Count, like-for-like MoM %.
+	measure 'Sales Count MoM % Like-for-Like' =
+			VAR _Cur = [Sales Count]
+			VAR _PM  = [Sales Count PM Same Days]
+			RETURN
+			    DIVIDE ( _Cur - _PM, _PM )
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 9. Partial Month & YTD
+
+	/// N5. 1 when Planned Activities is below the threshold (e.g. ROUTE 99), else 0. Use for grey-out / sort-last / filter.
+	measure 'Low Volume Flag' =
+			VAR _MinPlanned = 20    -- PLACEHOLDER threshold: confirm with the user
+			VAR _P = [Planned Activities]
+			RETURN
+			    IF ( NOT ISBLANK ( _P ), IF ( _P < _MinPlanned, 1, 0 ) )
+		formatString: 0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N7. Executed Activities, year to date (planned date).
+	measure 'Executed YTD' =
+			CALCULATE ( [Executed Activities], DATESYTD ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N7. Planned Activities, year to date.
+	measure 'Planned YTD' =
+			CALCULATE ( [Planned Activities], DATESYTD ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N7. PROVISIONAL. Sales Count, year to date.
+	measure 'Sales Count YTD' =
+			CALCULATE ( [Sales Count], DATESYTD ( DimDate[ACTUAL_DATE] ) )
+		formatString: #,0
+		displayFolder: 9. Partial Month & YTD
+
+	/// N8. "Month to date, through 14 Oct" when the month is partial; blank otherwise.
+	measure 'Partial Month Label' =
+			VAR _Through = CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) )
+			RETURN
+			    IF ( [Is Partial Month], "Month to date, through " & FORMAT ( _Through, "d mmm" ) )
+		displayFolder: 9. Partial Month & YTD
+
+	/// N4. Arrow + Executed MoM % Like-for-Like. Image 80x18.
+	measure 'SVG KPI Arrow Executed MoM LfL' =
+			// Rise = green, fall = red.
+			VAR _d = [Executed MoM % Like-for-Like]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23006341", _d < 0, "%23B03A2E", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " LfL"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// N4. Arrow + Planned MoM % Like-for-Like. Image 80x18.
+	measure 'SVG KPI Arrow Planned MoM LfL' =
+			// Rise = green, fall = red.
+			VAR _d = [Planned MoM % Like-for-Like]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23006341", _d < 0, "%23B03A2E", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " LfL"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// N4. PROVISIONAL. Arrow + Sales Count MoM % Like-for-Like. Image 80x18.
+	measure 'SVG KPI Arrow Sales Count MoM LfL' =
+			// PROVISIONAL (Sales Count)
+			// Rise = green, fall = red.
+			VAR _d = [Sales Count MoM % Like-for-Like]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23006341", _d < 0, "%23B03A2E", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " LfL"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
+	/// Arrow + Gap to Plan MoM % (Gap to Plan = Not Executed, so it uses Not Executed MoM %). REVERSED colours: a drop is good. Image 80x18.
+	measure 'SVG KPI Arrow Gap to Plan' =
+			// REVERSED colours: a rise is bad (red), a fall is good (green).
+			VAR _d = [Not Executed MoM %]
+			VAR _Col = SWITCH ( TRUE (), _d > 0, "%23B03A2E", _d < 0, "%23006341", "%239AA5AB" )
+			VAR _Shape =
+			    SWITCH ( TRUE (),
+			        _d > 0, "<polygon points='2,14 8,4 14,14' fill='" & _Col & "'/>",
+			        _d < 0, "<polygon points='2,4 8,14 14,4' fill='" & _Col & "'/>",
+			        "<rect x='2' y='8' width='12' height='2' fill='" & _Col & "'/>" )
+			VAR _Txt = SUBSTITUTE ( FORMAT ( _d, "+0.0%;-0.0%;0.0%" ), "%", "%25" ) & " MoM"
+			VAR _Svg =
+			    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='18'>" & _Shape
+			        & "<text x='18' y='13' font-family='Arial' font-size='10' fill='%23000000'>" & _Txt & "</text></svg>"
+			RETURN
+			    IF ( NOT ISBLANK ( _d ), "data:image/svg+xml;utf8," & _Svg )
+		dataCategory: ImageUrl
+		displayFolder: 6. SVG
+
 // ---------------------------------------------------------------------------
 // STUB - Product-level sales via disconnected Product slicer. NOT ACTIVE.
 // Waits on: (a) mapping answers for OdApp (OD/ODA-A/ODA-C/ODLI), CcApp,
@@ -312,3 +1231,84 @@ table MPO
 //			    )
 //		formatString: #,0
 //		displayFolder: 4. Sales (PROVISIONAL)
+
+	// ---------------------------------------------------------------------------
+	// 10. L12M - rolling last 12 months on the disconnected 'L12M Axis' table (BU page).
+	// The Month slicer stays on DimDate; these measures remove the DimDate filter and
+	// re-apply the axis month as a date range. Planned date except L12M Executed (exec date).
+	// ---------------------------------------------------------------------------
+
+	/// End date of the selected DimDate month (max selected). With no date filter: end of the month of [Data Through Date].
+	measure 'L12M Selected Month End' =
+			IF (
+			    ISFILTERED ( DimDate ),
+			    EOMONTH ( MAX ( DimDate[ACTUAL_DATE] ), 0 ),
+			    EOMONTH ( CALCULATE ( [Data Through Date], REMOVEFILTERS ( DimDate ) ), 0 )
+			)
+		formatString: d mmm yyyy
+		displayFolder: 10. L12M
+
+	/// 1 when the axis month is one of the 12 months ending at the selected month, else 0.
+	measure 'L12M Visible Flag' =
+			VAR _End       = [L12M Selected Month End]
+			VAR _Start     = DATE ( YEAR ( _End ), MONTH ( _End ) - 11, 1 )
+			VAR _AxisMonth = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
+			RETURN
+			    IF ( NOT ISBLANK ( _AxisMonth ) && _AxisMonth >= _Start && _AxisMonth <= _End, 1, 0 )
+		formatString: 0
+		displayFolder: 10. L12M
+
+	/// Planned Activities for the axis month, only inside the 12 months ending at the selected month; planned date.
+	measure 'L12M Planned' =
+			VAR _AxisMonth = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
+			RETURN
+			    IF (
+			        [L12M Visible Flag] = 1,
+			        CALCULATE (
+			            [Planned Activities],
+			            REMOVEFILTERS ( DimDate ),
+			            DATESBETWEEN ( DimDate[ACTUAL_DATE], _AxisMonth, EOMONTH ( _AxisMonth, 0 ) )
+			        )
+			    )
+		formatString: #,0
+		displayFolder: 10. L12M
+
+	/// Executed (Exec Date) for the axis month (USERELATIONSHIP on ExecutedDateKey), only inside the 12-month window.
+	measure 'L12M Executed' =
+			VAR _AxisMonth = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
+			RETURN
+			    IF (
+			        [L12M Visible Flag] = 1,
+			        CALCULATE (
+			            [Executed Activities],
+			            REMOVEFILTERS ( DimDate ),
+			            DATESBETWEEN ( DimDate[ACTUAL_DATE], _AxisMonth, EOMONTH ( _AxisMonth, 0 ) ),
+			            USERELATIONSHIP ( DimDate[DATE_KEY], MPO[ExecutedDateKey] )
+			        )
+			    )
+		formatString: #,0
+		displayFolder: 10. L12M
+
+	/// PROVISIONAL. Activities With Sales for the axis month, only inside the 12-month window; planned date.
+	measure 'L12M Activities With Sales' =
+			// PROVISIONAL (Activities With Sales)
+			VAR _AxisMonth = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
+			RETURN
+			    IF (
+			        [L12M Visible Flag] = 1,
+			        CALCULATE (
+			            [Activities With Sales],
+			            REMOVEFILTERS ( DimDate ),
+			            DATESBETWEEN ( DimDate[ACTUAL_DATE], _AxisMonth, EOMONTH ( _AxisMonth, 0 ) )
+			        )
+			    )
+		formatString: #,0
+		displayFolder: 10. L12M
+
+	/// Bar colour (fx > Field value): #006341 for the selected month, grey for the other 11.
+	measure 'L12M Bar Colour' =
+			VAR _End       = [L12M Selected Month End]
+			VAR _AxisMonth = SELECTEDVALUE ( 'L12M Axis'[Month Start] )
+			RETURN
+			    IF ( _AxisMonth = DATE ( YEAR ( _End ), MONTH ( _End ), 1 ), "#006341", "#A6A6A6" )
+		displayFolder: 10. L12M
